@@ -42,6 +42,26 @@ public sealed class CommitSyncServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task SyncAsync_HandWrittenTitleBlogPostWithoutNumber_DoesNotBreakTheNumbering()
+    {
+        // Arrange: an Editor wrote a post titled "Blog Post intro".
+        await using (var db = _database.CreateContext())
+        {
+            db.BlogPosts.Add(new PortfolioApi.Models.BlogPost { Title = "Blog Post intro", Content = "x" });
+            await db.SaveChangesAsync();
+        }
+        var commit = FakeGitHubCommitClient.Commit("Na de intro.", Now);
+        _gitHub.Push(commit);
+
+        // Act
+        await CreateService().SyncAsync();
+
+        // Assert
+        var post = await _database.CreateContext().BlogPosts.SingleAsync(b => b.CommitSha == commit.Sha);
+        Assert.Equal("Blog Post 21", post.Title);
+    }
+
+    [Fact]
     public async Task SyncAsync_CommitMessage_BecomesTheTrimmedContent()
     {
         // Arrange

@@ -59,6 +59,20 @@ public sealed class ProjectServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task CreateAsync_WithoutTags_StoresAnEmptyTagList()
+    {
+        // Arrange: tags are optional.
+        var service = new ProjectService(_database.CreateContext());
+
+        // Act
+        var created = await service.CreateAsync(NewProject(tags: null));
+
+        // Assert
+        Assert.Empty(created.Tags);
+        Assert.Empty((await _database.CreateContext().Projects.FindAsync(created.Id))!.Tags);
+    }
+
+    [Fact]
     public async Task UpdateAsync_ExistingId_OverwritesAllFields()
     {
         // Arrange
