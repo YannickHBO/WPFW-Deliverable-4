@@ -1,221 +1,130 @@
-## Techniek
+# WPFWDesigns Portfolio
 
-- **.NET-versie:** .NET 10 (`net10.0`, getest met SDK 10.0.403)
-- **Packages:** Entity Framework Core 10 (`Microsoft.EntityFrameworkCore.SqlServer`, `.Design`), ASP.NET Core Identity (`Microsoft.AspNetCore.Identity.EntityFrameworkCore`), Swashbuckle.AspNetCore 10 (Swagger UI)
-- **Database:** SQL Server via EF Core met een eigen `PortfolioDbContext` (portfolio-inhoud en gebruikersaccounts)
-- **Solution:** `PortfolioApi.slnx` in de root
+React-frontend met een ASP.NET Core Web API (.NET 10) die projecten en blogposts in SQL Server opslaat.
+Accounts en rollen via ASP.NET Core Identity, tests met xUnit.
 
-## API-stijl en codestructuur
+- Ontwerpkeuzes: [ARCHITECTUUR.md](ARCHITECTUUR.md)
+- Tests en coverage: [TESTEN.md](TESTEN.md)
+- Hosting op Azure en Netlify: [DEPLOYMENT.md](DEPLOYMENT.md)
 
-De API gebruikt **controllers** (`[ApiController]`) en is gelaagd opgebouwd: Controllers → Services → Data.
-De motivatie achter deze keuzes staat in [ARCHITECTUUR.md](ARCHITECTUUR.md).
+## Projectstructuur
 
 ```
-PortfolioApi/
-├── Controllers/   ProjectsController, BlogPostsController, AuthController,
-│                  AdminUsersController, AdminCommitsController (HTTP)
-├── Services/      IProjectService/ProjectService, IBlogPostService/BlogPostService,
-│                  IUserAdminService/UserAdminService, ICommitSyncService/CommitSyncService,
-│                  CommitSyncBackgroundService (logica)
-├── GitHub/        IGitHubCommitClient/GitHubCommitClient (GitHub REST API), GitHubRepository, GitHubOptions
-├── Auth/          RoleNames (Gast, Editor, Admin) en Policies (CanEditContent, IsAdmin)
-├── Mappings/      Entity <-> DTO conversie (ToDto, ToEntity, ApplyTo)
-├── Dtos/          Invoer- en uitvoer-DTO's met validatie
-├── Models/        EF Core-entiteiten: Project, BlogPost, BlogPostImage, SyncedCommit, User
-├── Data/          PortfolioDbContext (Identity-tabellen + seed data)
-├── Migrations/    EF Core-migraties
-└── Program.cs     Dependency injection, Identity, cookie, autorisatie, commit-sync, Swagger, pipeline
-PortfolioApi.Tests/
-├── Integration/   Alle routes via HTTP (WebApplicationFactory + SQLite in-memory)
-├── Unit/          Services, regels, mappings, GitHub-client en achtergrondservice los getest
-└── Support/       Test-factory en zelfgemaakte fakes
-scripts/
-└── assign-role.sql   Lokaal een rol (Editor/Admin) toekennen
+PortfolioApi/          Web API (controllers → services → EF Core)
+PortfolioApi.Tests/    xUnit: Integration/ (via HTTP), Unit/, Support/
+client/                React-frontend (Vite)
+scripts/               assign-role.sql: rol toekennen
+PortfolioApi.slnx      Solution met API en testproject
 ```
 
-## SQL Server configureren
+## Lokaal starten
 
-De connectionstring staat in `PortfolioApi/appsettings.json` onder `ConnectionStrings:PortfolioDb`:
+Nodig: .NET 10 SDK, SQL Server Express (`.\SQLEXPRESS`) en Node.js.
 
-```json
-"PortfolioDb": "Server=.\\SQLEXPRESS;Database=PortfolioDb;Trusted_Connection=True;TrustServerCertificate=True"
+De connectionstring staat in `PortfolioApi/appsettings.json` en gebruikt Windows-authenticatie. Gebruik je
+LocalDB, vervang dan de server door `(localdb)\\MSSQLLocalDB`. Een SQL-login met wachtwoord zet je in de
+user-secrets, niet in `appsettings.json`:
+
+```bash
+cd PortfolioApi
+dotnet user-secrets set "ConnectionStrings:PortfolioDb" "Server=...;Database=PortfolioDb;User Id=...;Password=..."
 ```
 
-- Standaard wordt een lokale **SQL Server Express**-instantie (`.\SQLEXPRESS`) gebruikt met Windows-authenticatie.
-  Er staat dus geen wachtwoord in de connectionstring.
-- Gebruik je **LocalDB**, vervang dan `Server=.\\SQLEXPRESS` door `Server=(localdb)\\MSSQLLocalDB`.
-- Gebruik je een SQL-login met wachtwoord, zet de connectionstring dan **niet** in `appsettings.json`
-  maar in de user-secrets (die staan buiten de repository):
-
-  ```bash
-  cd PortfolioApi
-  dotnet user-secrets init
-  dotnet user-secrets set "ConnectionStrings:PortfolioDb" "Server=...;Database=PortfolioDb;User Id=...;Password=...;TrustServerCertificate=True"
-  ```
-
-## Database aanmaken
-
-De database wordt aangemaakt met **EF Core-migraties** (niet met `EnsureCreated`).
-
-- **Automatisch:** bij het starten roept `Program.cs` `db.Database.Migrate()` aan. De database
-  `PortfolioDb`, de tabellen en de seed data worden dan aangemaakt of bijgewerkt. Dat geldt ook voor de
-  **Identity-migraties**: de tabellen `AspNetUsers`, `AspNetRoles`, `AspNetUserRoles` (en een paar meer)
-  en de drie rollen **Gast**, **Editor** en **Admin**.
-- **Handmatig** (optioneel):
-
-  ```bash
-  dotnet tool install --global dotnet-ef --version 10.0.14
-  cd PortfolioApi
-  dotnet ef database update
-  ```
-
-Omdat de gegevens in SQL Server staan, blijven ze bestaan na een herstart van de applicatie.
-
-## Applicatie starten
+API starten:
 
 ```bash
 cd PortfolioApi
 dotnet run --launch-profile http
 ```
 
-Open daarna **Swagger UI** op http://localhost:5080/swagger om alle endpoints te testen.
-
-## Gebruikers, rollen en toegang
-
-Accounts worden beheerd met **ASP.NET Core Identity**. Na een geslaagde login zet de API een
-authenticatiecookie (`PortfolioAuth`: `HttpOnly`, `Secure`, `SameSite=Lax`). De browser stuurt die
-cookie daarna automatisch mee, ook vanuit Swagger UI en straks vanuit de React-app.
-
-| Rol | Wie | Rechten |
-|---|---|---|
-| **Gast** | Iedere nieuwe registratie | Lezen (zoals iedereen) |
-| **Editor** | Handmatig toegekend (script) | Projecten en blogposts aanmaken, wijzigen en verwijderen |
-| **Admin** | Handmatig toegekend (script) | Hetzelfde als Editor: Admin staat expliciet in de policy `CanEditContent` |
-
-### Routes
-
-| Route | Toegang | Resultaat |
-|---|---|---|
-| `GET /api/projects`, `GET /api/projects/{id}` | Iedereen | 200, of 404 bij onbekend id |
-| `POST /api/projects` | Editor, Admin | 201, 400 bij ongeldige invoer |
-| `PUT /api/projects/{id}` | Editor, Admin | 200, 400 of 404 |
-| `DELETE /api/projects/{id}` | Editor, Admin | 204 of 404 |
-| `GET /api/blogposts`, `GET /api/blogposts/{id}` | Iedereen | 200, of 404 bij onbekend id |
-| `POST /api/blogposts` | Editor, Admin | 201, 400 bij ongeldige invoer |
-| `PUT /api/blogposts/{id}` | Editor, Admin | 200, 400 of 404 |
-| `DELETE /api/blogposts/{id}` | Editor, Admin | 204 of 404 |
-| `POST /api/auth/register` | Iedereen | 201 met rol Gast, 400 bij ongeldige invoer of bestaand e-mailadres |
-| `POST /api/auth/login` | Iedereen | 200 + cookie, 401 bij onjuiste gegevens |
-| `POST /api/auth/logout` | Iedereen | 204, cookie verwijderd |
-| `GET /api/auth/me` | Aangemeld | 200 met e-mail en rollen, anders 401 |
-| `GET /api/admin/users` | Admin | 200 met alle accounts en hun rollen |
-| `POST /api/admin/users/{id}/editor` | Admin | 200, 404 bij onbekende gebruiker, 409 als de gebruiker al Editor of Admin is |
-| `POST /api/admin/sync-commits` | Admin | 200 met het aantal nieuwe posts, 502 als GitHub niet bereikbaar is |
-
-Een schrijfverzoek **zonder geldige aanmelding** krijgt **401**, een aangemelde gebruiker **zonder Editor- of
-Admin-rol** krijgt **403**. De API controleert dit zelf met `[Authorize(Policy = Policies.CanEditContent)]`
-op elke schrijfactie. Na **3 foute wachtwoorden** achter elkaar is een account 5 minuten geblokkeerd.
-
-### Een gewone gebruiker aanmaken
-
-1. Start de API en open http://localhost:5080/swagger.
-2. `POST /api/auth/register` met bijvoorbeeld:
-
-   ```json
-   { "email": "gast@example.test", "password": "<eigen wachtwoord>" }
-   ```
-
-   Het wachtwoord moet minimaal 6 tekens hebben, met een hoofdletter, een kleine letter, een cijfer en
-   een speciaal teken (zoals `-` of `!`). De gebruiker krijgt de rol **Gast**. Registratie kent nooit Editor of Admin toe.
-3. `POST /api/auth/login` met dezelfde gegevens. De response zet de cookie; `GET /api/auth/me` laat
-   zien wie er is aangemeld.
-
-### Editor of Admin toekennen
-
-Editor en Admin worden lokaal toegekend met [scripts/assign-role.sql](scripts/assign-role.sql).
-Registreer de gebruiker eerst (zie hierboven) en voer daarna vanuit de root van de repository uit:
+Bij het starten voert de API de EF Core-migraties uit. Daarmee worden de database `PortfolioDb`, de
+Identity-tabellen, de rollen Gast, Editor en Admin en de seed data aangemaakt. Handmatig kan ook:
 
 ```bash
-sqlcmd -S .\SQLEXPRESS -E -C -b -W -d PortfolioDb -i scripts/assign-role.sql -v Email="editor@example.test" Role="Editor"
-sqlcmd -S .\SQLEXPRESS -E -C -b -W -d PortfolioDb -i scripts/assign-role.sql -v Email="admin@example.test" Role="Admin"
+dotnet tool install --global dotnet-ef --version 10.0.14
+cd PortfolioApi
+dotnet ef database update
 ```
 
-In SSMS of Azure Data Studio kan het ook: zet **SQLCMD Mode** aan (Query → SQLCMD Mode) en zet bovenaan
-`:setvar Email "editor@example.test"` en `:setvar Role "Editor"`.
+Swagger UI: http://localhost:5080/swagger
 
-Het script controleert of de gebruiker en de rol bestaan, kent de rol toe en geeft de gebruiker een
-nieuwe **SecurityStamp**, in één transactie.
-
-**Via de API (als Admin):** een aangemelde Admin kan een Gast ook Editor maken. Zoek met
-`GET /api/admin/users` het `id` van de gebruiker op en roep `POST /api/admin/users/{id}/editor` aan.
-Dat werkt alleen voor een gebruiker die uitsluitend de rol Gast heeft; ook hier wordt de SecurityStamp
-vernieuwd. De eerste Admin moet je dus altijd met het script aanmaken.
-
-### Opnieuw inloggen na een rolwijziging
-
-De API vergelijkt bij elk verzoek de SecurityStamp in de cookie met die in de database. Omdat het script
-de stamp vernieuwt, werkt de oude cookie direct niet meer (**401**). De gebruiker logt opnieuw in en
-krijgt dan een cookie met de nieuwe rol. Zo blijft een cookie nooit geldig met rechten die niet meer kloppen.
-
-### Wachtwoorden en sleutels
-
-- Er staan **geen wachtwoorden of sleutels** in de repository. Testgebruikers maak je lokaal aan via
-  registratie, en hun wachtwoord staat alleen als hash (`AspNetUsers.PasswordHash`) in je lokale database.
-- De cookie wordt versleuteld met ASP.NET Core Data Protection. Lokaal staan die sleutels in je
-  Windows-profiel (`%LOCALAPPDATA%\ASP.NET\DataProtection-Keys`), niet in de repository.
-
-## Commits automatisch op de blog
-
-Iedere commit op de `main`-branch van deze repository wordt vanzelf een blogpost: het commitbericht is
-de tekst, het tijdstip van de commit (Nederlandse tijd) de publicatiedatum.
-
-- **Wanneer:** bij het starten van de API en daarna elke 15 minuten (`GitHub:SyncIntervalMinutes` in
-  `appsettings.json`). Een Admin kan ook direct synchroniseren met `POST /api/admin/sync-commits`.
-- **Welke commits:** alleen commits op `main`, dus werk van een feature branch pas nadat die gemerged is.
-  Merge commits ("Merge pull request ...") worden overgeslagen.
-- **Herkenbaar:** een commitpost heeft in de API een `commitSha` en een `commitUrl`; bij een handgeschreven
-  post zijn die `null`. De blogpagina toont bij een commitpost een link `commit 4c44f35 ↗` naar GitHub.
-- **Geen dubbele posts:** elke verwerkte commit wordt onthouden (tabel `SyncedCommits`). Verwijdert een
-  Editor een commitpost, dan komt die niet terug.
-- **GitHub niet bereikbaar:** de blog toont gewoon de posts die al in de database staan; de sync probeert
-  het bij de volgende ronde opnieuw.
-- **Token (optioneel):** de repository is openbaar, dus een token is niet nodig (60 verzoeken per uur, en
-  dankzij de ETag tellen verzoeken zonder wijzigingen niet mee). Wil je toch een token gebruiken, zet het
-  dan in de user-secrets, nooit in `appsettings.json`:
-
-  ```bash
-  cd PortfolioApi
-  dotnet user-secrets set "GitHub:Token" "<read-only token>"
-  ```
-
-- **Uitzetten:** zet `GitHub:SyncEnabled` op `false`. De tests doen dat ook, zodat ze nooit GitHub aanroepen.
-
-## Testen
-
-Het xUnit-testproject `PortfolioApi.Tests` staat in dezelfde solution. Vanuit de root van de repository:
-
-```bash
-dotnet test
-```
-
-Er is geen SQL Server, internet of GitHub nodig: de tests starten de API in het geheugen op een eigen
-**SQLite-database** (los van `PortfolioDb`) en gebruiken een nep-GitHub. Alle routes zijn via HTTP getest,
-zonder aanmelding, als Gast, als Editor en als Admin.
-
-Coverage meten (eenmalig `dotnet tool install -g dotnet-reportgenerator-globaltool`):
-
-```bash
-dotnet test --settings PortfolioApi.Tests/coverage.runsettings --results-directory TestResults
-reportgenerator -reports:"TestResults/**/coverage.cobertura.xml" -targetdir:coveragereport -reporttypes:"Html;TextSummary"
-```
-
-De opbouw van de tests, de **route- en testmatrix** (per route wie toegang heeft, de testnamen en de
-verwachte HTTP-resultaten) en de **onderbouwing van de coverage** staan in [TESTEN.md](TESTEN.md).
-
-## Frontend starten
+Frontend starten (met de API aan; Vite stuurt `/api` door naar poort 5080):
 
 ```bash
 cd client
 npm install
 npm run dev
 ```
+
+## Gebruikers en rollen
+
+| Rol | Hoe | Mag |
+|---|---|---|
+| Gast | Elke nieuwe registratie | Lezen |
+| Editor | Script of Admin | Projecten en blogposts aanmaken, wijzigen, verwijderen |
+| Admin | Script | Hetzelfde als Editor, plus gebruikersbeheer |
+
+**Gewone gebruiker:** in Swagger `POST /api/auth/register` met een e-mailadres en wachtwoord (minimaal 6 tekens,
+hoofdletter, kleine letter, cijfer en speciaal teken). Daarna `POST /api/auth/login`; de API zet een
+authenticatiecookie.
+
+**Editor of Admin:** registreer eerst, voer daarna vanuit de root uit:
+
+```bash
+sqlcmd -S .\SQLEXPRESS -E -C -b -W -d PortfolioDb -i scripts/assign-role.sql -v Email="editor@example.test" Role="Editor"
+sqlcmd -S .\SQLEXPRESS -E -C -b -W -d PortfolioDb -i scripts/assign-role.sql -v Email="admin@example.test" Role="Admin"
+```
+
+Een Admin kan een Gast ook Editor maken met `POST /api/admin/users/{id}/editor`.
+
+**Na een rolwijziging moet de gebruiker opnieuw inloggen.** Het script en de admin-route vernieuwen de
+SecurityStamp, en de API controleert die bij elk verzoek. De oude cookie geeft dan 401.
+
+Na 3 foute wachtwoorden is een account 5 minuten geblokkeerd. Er staan geen wachtwoorden of sleutels in de
+repository.
+
+## Routes
+
+| Route | Toegang |
+|---|---|
+| `GET /api/projects`, `GET /api/projects/{id}` | Iedereen |
+| `POST`, `PUT`, `DELETE /api/projects` | Editor, Admin |
+| `GET /api/blogposts`, `GET /api/blogposts/{id}` | Iedereen |
+| `POST`, `PUT`, `DELETE /api/blogposts` | Editor, Admin |
+| `POST /api/auth/register`, `/login`, `/logout` | Iedereen |
+| `GET /api/auth/me` | Aangemeld |
+| `GET /api/admin/users`, `POST /api/admin/users/{id}/editor` | Admin |
+| `POST /api/admin/sync-commits` | Admin |
+
+Een schrijfverzoek zonder aanmelding geeft 401, een aangemelde gebruiker zonder Editor- of Admin-rol 403.
+De statuscodes per route en de bijbehorende tests staan in [TESTEN.md](TESTEN.md).
+
+## Testen
+
+```bash
+dotnet test
+```
+
+De tests draaien op een eigen SQLite-database in het geheugen en gebruiken een nep-GitHub; SQL Server en
+internet zijn niet nodig. Coverage meten (eenmalig `dotnet tool install -g dotnet-reportgenerator-globaltool`):
+
+```bash
+dotnet test --settings PortfolioApi.Tests/coverage.runsettings --results-directory TestResults
+reportgenerator -reports:"TestResults/**/coverage.cobertura.xml" -targetdir:coveragereport -reporttypes:"Html;TextSummary"
+```
+
+## Commits op de blog
+
+Commits op `main` worden automatisch blogposts: bij het starten van de API, elke 15 minuten en met
+`POST /api/admin/sync-commits`. Merge commits worden overgeslagen. Een commitpost heeft een `commitSha` en
+een link naar GitHub. Uitzetten kan met `GitHub:SyncEnabled = false` in `appsettings.json`.
+
+## Online
+
+| | Adres |
+|---|---|
+| Frontend (Netlify) | https://wpfwdesigns.netlify.app (voorlopig privé) |
+| API (Azure App Service) | https://wpfwdesigns-api.azurewebsites.net |
+
+Een push naar `main` draait de tests en deployt daarna de API (GitHub Actions) en de frontend (Netlify).
+Inrichting en beheer: [DEPLOYMENT.md](DEPLOYMENT.md).

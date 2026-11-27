@@ -302,3 +302,62 @@ vaste commits gebruiken en nooit echt GitHub aanroepen. De tijd komt van `TimePr
 tests vast te zetten is. De repository is openbaar, dus een token is niet nodig. Wie er toch een gebruikt
 (voor een hogere rate limit), zet het in de user-secrets of in de configuratie van de host, nooit in de
 repository.
+
+## 9. Deployment: Azure en Netlify
+
+### 9.1 Twee hosts, één domein voor de bezoeker
+
+Netlify host statische sites, maar geen ASP.NET Core-API met SQL Server. Daarom staat de frontend op
+**Netlify** en de API met database op **Azure** (App Service en Azure SQL), betaald uit het studentenkrediet.
+Netlify stuurt `/api/*` door naar Azure (een **proxy**, `status = 200` in `netlify.toml`). De browser praat
+dus alleen met `wpfwdesigns.netlify.app`. Daardoor is de authenticatiecookie een *first-party* cookie, die
+browsers niet blokkeren, is CORS niet nodig en werkt de React-code precies zoals lokaal met de Vite-proxy.
+
+### 9.2 Kosten: F1 en Basic
+
+| Onderdeel | Keuze | Waarom |
+|---|---|---|
+| App Service | **F1** (gratis) | Genoeg voor een portfolio. De app valt in slaap zonder bezoekers; de eerste aanroep daarna duurt even. |
+| Azure SQL | **Basic** (~€4,50/mnd) | De gratis serverless-database pauzeert en heeft bij het wakker worden tot een minuut nodig. Achter de Netlify-proxy, die na ongeveer een halve minuut opgeeft, zou dat eerste verzoek mislukken. Basic pauzeert nooit. |
+| Budget | **€5 per maand** | Een waarschuwing per mail bij 80 % en 100 %. Het is geen harde limiet; die zit in het studentenkrediet zelf. |
+
+Alles staat in **Belgium Central**: het studentenabonnement staat West Europe niet toe, en Brussel is de
+dichtstbijzijnde toegestane regio. De database en de App Service staan in dezelfde regio, zodat elke query
+geen omweg maakt.
+
+### 9.3 Geen wachtwoorden of sleutels
+
+- **De API logt in op de database met een Managed Identity.** Azure geeft de App Service een eigen identiteit
+  in Microsoft Entra ID; de database kent die als gebruiker (`CREATE USER … FROM EXTERNAL PROVIDER`). De
+  connectionstring bevat geen wachtwoord, en de SQL-server staat alleen Entra ID-login toe: een SQL-login met
+  wachtwoord bestaat niet.
+- **GitHub logt in bij Azure met OpenID Connect.** Bij elke deploy vraagt GitHub een kortlevend, ondertekend
+  token aan; Azure ruilt dat alleen in als het van deze repository komt, uit de omgeving `production`, die
+  alleen vanaf `main` gebruikt mag worden. Er staat geen Azure-wachtwoord of publish profile in GitHub.
+  GitHub zet in dat token ook de vaste nummers van de eigenaar en de repository; een nieuwe repository met
+  dezelfde naam kan zich daardoor niet als deze voordoen.
+- **Least privilege:** de identiteit van GitHub heeft alleen de rol *Website Contributor* op deze ene Web App,
+  niet op de database of de rest van het abonnement. De API heeft in de database lees- en schrijfrechten, plus
+  `db_ddladmin` voor de migraties bij het starten (zie 9.4).
+- **Publiceren met gebruikersnaam en wachtwoord (FTP/SCM) staat uit**, de App Service accepteert alleen HTTPS
+  vanaf TLS 1.2, en Swagger staat in productie uit.
+
+### 9.4 Migraties bij het starten
+
+De API voert bij het starten zelf de migraties uit, zoals lokaal. Dat houdt de deployment eenvoudig: een
+nieuwe migratie gaat mee met de code. De prijs is dat de API in de database tabellen mag wijzigen
+(`db_ddladmin`). De strengere variant, migraties als aparte stap in de workflow en de API alleen lees- en
+schrijfrechten, is een mogelijke verbetering voor later.
+
+### 9.5 Alleen deployen wat getest is
+
+De GitHub Actions-workflow draait eerst alle tests en deployt alleen als die slagen, alleen vanaf `main` en
+alleen bij wijzigingen aan de backend. Bij een pull request draaien alleen de tests. De gebruikte actions zijn
+vastgezet op een commit-SHA in plaats van een versietag: een tag kan later naar andere code wijzen, een
+commit niet. Dat sluit aan bij wat ik in mijn project over package poisoning heb onderzocht.
+
+### 9.6 Robuust bij korte storingen
+
+Azure SQL kan kort onbereikbaar zijn, bijvoorbeeld bij onderhoud. EF Core probeert een query dan zelf opnieuw
+(`EnableRetryOnFailure`). Omdat EF met die instelling geen losse transacties toestaat, loopt de transactie in
+`UserAdminService` via de *execution strategy* van EF: mislukt een poging, dan begint de hele stap opnieuw.
