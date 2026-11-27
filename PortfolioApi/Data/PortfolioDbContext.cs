@@ -40,7 +40,11 @@ public class PortfolioDbContext(DbContextOptions<PortfolioDbContext> options) : 
                 new Project { Id = 6, Title = "WPFWDesigns Portfolio", Category = "Web development", Date = new DateOnly(2026, 9, 7), InProgress = true,
                     Description = "This website: a React frontend with a typewriter look, weather-based dark mode and photo galleries, backed by my own ASP.NET Core Web API that stores projects and blog posts in SQL Server via EF Core.",
                     GitHubUrl = "https://github.com/YannickHBO/WPFW-Deliverable-3",
-                    Tags = ["React", "ASP.NET Core", "SQL Server"] });
+                    Tags = ["React", "ASP.NET Core", "SQL Server"] },
+                // Private repository, so no GitHubUrl: shown as closed source.
+                new Project { Id = 7, Title = "UI Rearrange (GW2 addon)", Category = "Game modding", Date = new DateOnly(2026, 11, 11), InProgress = true,
+                    Description = "A Guild Wars 2 addon (Nexus) that lets players move, scale and hide parts of the game's HUD, adds a compact squad panel, custom boon icons and warnings. It works purely on the rendered picture via DirectX 11 draw-call hooks and Windows OCR, and never reads or writes game memory, so it stays within ArenaNet's rules.",
+                    Tags = ["C++", "DirectX 11", "ImGui"] });
         });
 
         modelBuilder.Entity<BlogPost>(post =>

@@ -412,6 +412,16 @@ namespace PortfolioApi.Migrations
                             InProgress = true,
                             Tags = "[\"React\",\"ASP.NET Core\",\"SQL Server\"]",
                             Title = "WPFWDesigns Portfolio"
+                        },
+                        new
+                        {
+                            Id = 7,
+                            Category = "Game modding",
+                            Date = new DateOnly(2026, 11, 11),
+                            Description = "A Guild Wars 2 addon (Nexus) that lets players move, scale and hide parts of the game's HUD, adds a compact squad panel, custom boon icons and warnings. It works purely on the rendered picture via DirectX 11 draw-call hooks and Windows OCR, and never reads or writes game memory, so it stays within ArenaNet's rules.",
+                            InProgress = true,
+                            Tags = "[\"C\\u002B\\u002B\",\"DirectX 11\",\"ImGui\"]",
+                            Title = "UI Rearrange (GW2 addon)"
                         });
                 });
 
