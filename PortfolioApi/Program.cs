@@ -10,8 +10,11 @@ using PortfolioApi.Services;
 var builder = WebApplication.CreateBuilder(args);
 
 // Data: EF Core DbContext against SQL Server (scoped: one instance per HTTP request).
+// EnableRetryOnFailure: Azure SQL can briefly be unavailable (maintenance, failover, throttling);
+// EF Core then retries the query a few times instead of failing the request straight away.
 builder.Services.AddDbContext<PortfolioDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("PortfolioDb")));
+    options.UseSqlServer(builder.Configuration.GetConnectionString("PortfolioDb"),
+        sqlServer => sqlServer.EnableRetryOnFailure()));
 
 // Identity: user accounts and roles stored in PortfolioDbContext. AddIdentityCore (not AddIdentity)
 // adds no UI-oriented defaults; AddSignInManager adds password sign-in and the security stamp check.

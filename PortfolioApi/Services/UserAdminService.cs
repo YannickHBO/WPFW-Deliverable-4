@@ -35,21 +35,30 @@ public class UserAdminService(
 
     public async Task<GrantEditorResult> GrantEditorAsync(string userId, string adminId)
     {
-        var user = await userManager.FindByIdAsync(userId);
-        if (user is null) return new GrantEditorResult(GrantEditorStatus.UserNotFound);
-
-        // Only a plain Gast can be promoted. An Editor or Admin is left alone, so this route can
-        // never change anything for an account that already has write rights.
-        var roles = await userManager.GetRolesAsync(user);
-        var isPlainGuest = roles.Contains(RoleNames.Guest)
-            && !roles.Contains(RoleNames.Editor)
-            && !roles.Contains(RoleNames.Admin);
-        if (!isPlainGuest) return new GrantEditorResult(GrantEditorStatus.NotAGuest);
-
-        // The role and the new SecurityStamp go together: either both are saved or neither.
-        // UserManager uses the same scoped DbContext, so its saves run inside this transaction.
-        await using (var transaction = await db.Database.BeginTransactionAsync())
+        // With EnableRetryOnFailure (Program.cs), EF Core only allows a transaction inside its
+        // execution strategy: if the database briefly drops out, the strategy runs this whole block
+        // again. Every attempt therefore starts from scratch.
+        var strategy = db.Database.CreateExecutionStrategy();
+        var result = await strategy.ExecuteAsync(async () =>
         {
+            // Forget anything a failed earlier attempt left behind in the DbContext.
+            db.ChangeTracker.Clear();
+
+            var user = await userManager.FindByIdAsync(userId);
+            if (user is null) return new GrantEditorResult(GrantEditorStatus.UserNotFound);
+
+            // Only a plain Gast can be promoted. An Editor or Admin is left alone, so this route can
+            // never change anything for an account that already has write rights.
+            var roles = await userManager.GetRolesAsync(user);
+            var isPlainGuest = roles.Contains(RoleNames.Guest)
+                && !roles.Contains(RoleNames.Editor)
+                && !roles.Contains(RoleNames.Admin);
+            if (!isPlainGuest) return new GrantEditorResult(GrantEditorStatus.NotAGuest);
+
+            // The role and the new SecurityStamp go together: either both are saved or neither.
+            // UserManager uses the same scoped DbContext, so its saves run inside this transaction.
+            await using var transaction = await db.Database.BeginTransactionAsync();
+
             ThrowIfFailed(await userManager.AddToRoleAsync(user, RoleNames.Editor), "add the role Editor");
 
             // AddToRoleAsync does not change the SecurityStamp by itself. Renewing it makes the
@@ -57,13 +66,16 @@ public class UserAdminService(
             ThrowIfFailed(await userManager.UpdateSecurityStampAsync(user), "renew the security stamp");
 
             await transaction.CommitAsync();
-        }
 
-        logger.LogInformation("Admin {AdminId} gave user {UserId} the role {Role}.", adminId, user.Id, RoleNames.Editor);
+            var newRoles = await userManager.GetRolesAsync(user);
+            return new GrantEditorResult(GrantEditorStatus.Granted,
+                new UserDto(user.Id, user.Email!, newRoles.Order().ToList()));
+        });
 
-        var newRoles = await userManager.GetRolesAsync(user);
-        return new GrantEditorResult(GrantEditorStatus.Granted,
-            new UserDto(user.Id, user.Email!, newRoles.Order().ToList()));
+        if (result.Status == GrantEditorStatus.Granted)
+            logger.LogInformation("Admin {AdminId} gave user {UserId} the role {Role}.", adminId, userId, RoleNames.Editor);
+
+        return result;
     }
 
     /// <summary>
