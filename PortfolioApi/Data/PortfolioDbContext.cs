@@ -1,9 +1,16 @@
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
+using PortfolioApi.Auth;
 using PortfolioApi.Models;
 
 namespace PortfolioApi.Data;
 
-public class PortfolioDbContext(DbContextOptions<PortfolioDbContext> options) : DbContext(options)
+/// <summary>
+/// One database for the portfolio content and the user accounts. IdentityDbContext adds the
+/// AspNetUsers, AspNetRoles, AspNetUserRoles (and a few more) tables next to our own.
+/// </summary>
+public class PortfolioDbContext(DbContextOptions<PortfolioDbContext> options) : IdentityDbContext<User>(options)
 {
     public DbSet<Project> Projects => Set<Project>();
     public DbSet<BlogPost> BlogPosts => Set<BlogPost>();
@@ -11,6 +18,10 @@ public class PortfolioDbContext(DbContextOptions<PortfolioDbContext> options) : 
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        // Configures the Identity tables (keys, indexes). Must run first, or EF Core
+        // throws because IdentityUserLogin and friends have no primary key.
+        base.OnModelCreating(modelBuilder);
+
         modelBuilder.Entity<Project>(project =>
         {
             project.Property(p => p.Title).HasMaxLength(100).IsRequired();
@@ -39,8 +50,12 @@ public class PortfolioDbContext(DbContextOptions<PortfolioDbContext> options) : 
                     Tags = ["Kubernetes", "Docker", "DevOps"] },
                 new Project { Id = 6, Title = "WPFWDesigns Portfolio", Category = "Web development", Date = new DateOnly(2026, 9, 7), InProgress = true,
                     Description = "This website: a React frontend with a typewriter look, weather-based dark mode and photo galleries, backed by my own ASP.NET Core Web API that stores projects and blog posts in SQL Server via EF Core.",
-                    GitHubUrl = "https://github.com/YannickHBO/WPFW-Deliverable-3",
-                    Tags = ["React", "ASP.NET Core", "SQL Server"] });
+                    GitHubUrl = "https://github.com/YannickHBO/WPFW-Deliverable-4",
+                    Tags = ["React", "ASP.NET Core", "SQL Server"] },
+                // Private repository, so no GitHubUrl: shown as closed source.
+                new Project { Id = 7, Title = "UI Rearrange (GW2 addon)", Category = "Game modding", Date = new DateOnly(2026, 11, 11), InProgress = true,
+                    Description = "A Guild Wars 2 addon (Nexus) that lets players move, scale and hide parts of the game's HUD, adds a compact squad panel, custom boon icons and warnings. It works purely on the rendered picture via DirectX 11 draw-call hooks and Windows OCR, and never reads or writes game memory, so it stays within ArenaNet's rules.",
+                    Tags = ["C++", "DirectX 11", "ImGui"] });
         });
 
         modelBuilder.Entity<BlogPost>(post =>
@@ -145,5 +160,16 @@ public class PortfolioDbContext(DbContextOptions<PortfolioDbContext> options) : 
                     Url = "/images/blog/the-hague-marathon-2026-strava.jpg",
                     Alt = "Strava screenshot of The Hague Marathon on November 1, 2026: a route map through The Hague and along the coast with personal-record badges, and the stats 42.44 km, average pace 5:05 per km, moving time 3:36:05, 59 m elevation gain, 3,012 calories and average heart rate 159 bpm." });
         });
+
+        // The three roles exist as soon as the migrations have run. Fixed Ids and ConcurrencyStamps,
+        // so EF Core doesn't see a "changed" role (and generate a new migration) on every build.
+        // NormalizedName is what Identity searches on: the name in upper case.
+        modelBuilder.Entity<IdentityRole>().HasData(
+            new IdentityRole { Id = "975b0980-845d-4446-a2a5-d469c7a2fa56", Name = RoleNames.Guest, NormalizedName = "GAST",
+                ConcurrencyStamp = "9a21748b-a47b-4237-a41f-db07158cae80" },
+            new IdentityRole { Id = "2b970617-8546-4694-bd21-26d048053955", Name = RoleNames.Editor, NormalizedName = "EDITOR",
+                ConcurrencyStamp = "d5e5b54b-81a2-4883-91de-a50ba69af3f3" },
+            new IdentityRole { Id = "745696a0-ceda-4917-964e-0e8900264764", Name = RoleNames.Admin, NormalizedName = "ADMIN",
+                ConcurrencyStamp = "b156bbb8-a3db-43de-ab0c-1720572acdd4" });
     }
 }

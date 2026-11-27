@@ -1,10 +1,15 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using PortfolioApi.Auth;
 using PortfolioApi.Dtos;
 using PortfolioApi.Services;
 
 namespace PortfolioApi.Controllers;
 
-/// <summary>HTTP layer only: routing, status codes and validation results. Logic lives in IBlogPostService.</summary>
+/// <summary>
+/// HTTP layer only: routing, status codes, validation results and who may call what. Logic lives in IBlogPostService.
+/// Reading is public; creating, updating and deleting require the policy CanEditContent (Editor or Admin).
+/// </summary>
 [ApiController]
 [Route("api/blogposts")]
 [Produces("application/json")]
@@ -25,8 +30,11 @@ public class BlogPostsController(IBlogPostService blogPostService) : ControllerB
     }
 
     [HttpPost]
+    [Authorize(Policy = Policies.CanEditContent)]
     [ProducesResponseType<BlogPostDto>(StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<ActionResult<BlogPostDto>> Create(CreateBlogPostDto dto)
     {
         var created = await blogPostService.CreateAsync(dto);
@@ -34,9 +42,12 @@ public class BlogPostsController(IBlogPostService blogPostService) : ControllerB
     }
 
     [HttpPut("{id:int}")]
+    [Authorize(Policy = Policies.CanEditContent)]
     [ProducesResponseType<BlogPostDto>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<ActionResult<BlogPostDto>> Update(int id, UpdateBlogPostDto dto)
     {
         var updated = await blogPostService.UpdateAsync(id, dto);
@@ -44,8 +55,11 @@ public class BlogPostsController(IBlogPostService blogPostService) : ControllerB
     }
 
     [HttpDelete("{id:int}")]
+    [Authorize(Policy = Policies.CanEditContent)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> Delete(int id) =>
         await blogPostService.DeleteAsync(id) ? NoContent() : NotFound();
 }
