@@ -47,6 +47,29 @@ namespace PortfolioApi.Migrations
                         .HasFilter("[NormalizedName] IS NOT NULL");
 
                     b.ToTable("AspNetRoles", (string)null);
+
+                    b.HasData(
+                        new
+                        {
+                            Id = "975b0980-845d-4446-a2a5-d469c7a2fa56",
+                            ConcurrencyStamp = "9a21748b-a47b-4237-a41f-db07158cae80",
+                            Name = "Gast",
+                            NormalizedName = "GAST"
+                        },
+                        new
+                        {
+                            Id = "2b970617-8546-4694-bd21-26d048053955",
+                            ConcurrencyStamp = "d5e5b54b-81a2-4883-91de-a50ba69af3f3",
+                            Name = "Editor",
+                            NormalizedName = "EDITOR"
+                        },
+                        new
+                        {
+                            Id = "745696a0-ceda-4917-964e-0e8900264764",
+                            ConcurrencyStamp = "b156bbb8-a3db-43de-ab0c-1720572acdd4",
+                            Name = "Admin",
+                            NormalizedName = "ADMIN"
+                        });
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<string>", b =>

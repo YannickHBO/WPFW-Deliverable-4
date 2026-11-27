@@ -1,5 +1,7 @@
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
+using PortfolioApi.Auth;
 using PortfolioApi.Models;
 
 namespace PortfolioApi.Data;
@@ -158,5 +160,16 @@ public class PortfolioDbContext(DbContextOptions<PortfolioDbContext> options) : 
                     Url = "/images/blog/the-hague-marathon-2026-strava.jpg",
                     Alt = "Strava screenshot of The Hague Marathon on November 1, 2026: a route map through The Hague and along the coast with personal-record badges, and the stats 42.44 km, average pace 5:05 per km, moving time 3:36:05, 59 m elevation gain, 3,012 calories and average heart rate 159 bpm." });
         });
+
+        // The three roles exist as soon as the migrations have run. Fixed Ids and ConcurrencyStamps,
+        // so EF Core doesn't see a "changed" role (and generate a new migration) on every build.
+        // NormalizedName is what Identity searches on: the name in upper case.
+        modelBuilder.Entity<IdentityRole>().HasData(
+            new IdentityRole { Id = "975b0980-845d-4446-a2a5-d469c7a2fa56", Name = RoleNames.Guest, NormalizedName = "GAST",
+                ConcurrencyStamp = "9a21748b-a47b-4237-a41f-db07158cae80" },
+            new IdentityRole { Id = "2b970617-8546-4694-bd21-26d048053955", Name = RoleNames.Editor, NormalizedName = "EDITOR",
+                ConcurrencyStamp = "d5e5b54b-81a2-4883-91de-a50ba69af3f3" },
+            new IdentityRole { Id = "745696a0-ceda-4917-964e-0e8900264764", Name = RoleNames.Admin, NormalizedName = "ADMIN",
+                ConcurrencyStamp = "b156bbb8-a3db-43de-ab0c-1720572acdd4" });
     }
 }
