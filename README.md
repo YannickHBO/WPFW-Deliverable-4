@@ -12,9 +12,10 @@ De motivatie achter deze keuzes staat in [ARCHITECTUUR.md](ARCHITECTUUR.md).
 
 ```
 PortfolioApi/
-├── Controllers/   ProjectsController, BlogPostsController, AuthController (HTTP)
-├── Services/      IProjectService/ProjectService, IBlogPostService/BlogPostService (logica)
-├── Auth/          RoleNames (Gast, Editor, Admin) en Policies (CanEditContent)
+├── Controllers/   ProjectsController, BlogPostsController, AuthController, AdminUsersController (HTTP)
+├── Services/      IProjectService/ProjectService, IBlogPostService/BlogPostService,
+│                  IUserAdminService/UserAdminService (logica)
+├── Auth/          RoleNames (Gast, Editor, Admin) en Policies (CanEditContent, IsAdmin)
 ├── Mappings/      Entity <-> DTO conversie (ToDto, ToEntity, ApplyTo)
 ├── Dtos/          Invoer- en uitvoer-DTO's met validatie
 ├── Models/        EF Core-entiteiten: Project, BlogPost, BlogPostImage, User
@@ -100,6 +101,8 @@ cookie daarna automatisch mee, ook vanuit Swagger UI en straks vanuit de React-a
 | `POST /api/auth/login` | Iedereen | 200 + cookie, 401 bij onjuiste gegevens |
 | `POST /api/auth/logout` | Iedereen | 204, cookie verwijderd |
 | `GET /api/auth/me` | Aangemeld | 200 met e-mail en rollen, anders 401 |
+| `GET /api/admin/users` | Admin | 200 met alle accounts en hun rollen |
+| `POST /api/admin/users/{id}/editor` | Admin | 200, 404 bij onbekende gebruiker, 409 als de gebruiker al Editor of Admin is |
 
 Een schrijfverzoek **zonder geldige aanmelding** krijgt **401**, een aangemelde gebruiker **zonder Editor- of
 Admin-rol** krijgt **403**. De API controleert dit zelf met `[Authorize(Policy = Policies.CanEditContent)]`
@@ -134,6 +137,11 @@ In SSMS of Azure Data Studio kan het ook: zet **SQLCMD Mode** aan (Query → SQL
 
 Het script controleert of de gebruiker en de rol bestaan, kent de rol toe en geeft de gebruiker een
 nieuwe **SecurityStamp**, in één transactie.
+
+**Via de API (als Admin):** een aangemelde Admin kan een Gast ook Editor maken. Zoek met
+`GET /api/admin/users` het `id` van de gebruiker op en roep `POST /api/admin/users/{id}/editor` aan.
+Dat werkt alleen voor een gebruiker die uitsluitend de rol Gast heeft; ook hier wordt de SecurityStamp
+vernieuwd. De eerste Admin moet je dus altijd met het script aanmaken.
 
 ### Opnieuw inloggen na een rolwijziging
 

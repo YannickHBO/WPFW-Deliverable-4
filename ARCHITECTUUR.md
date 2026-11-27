@@ -199,7 +199,28 @@ eerst zelf (met een eigen wachtwoord dat alleen als hash in de lokale database s
 het script met het e-mailadres en de rol als `sqlcmd`-variabelen. Er staan dus geen e-mailadressen of
 wachtwoorden in de repository.
 
-### 7.7 Overige beveiligingskeuzes
+### 7.7 Beheerroute: een Gast Editor maken
+
+Een Admin kan via `POST /api/admin/users/{id}/editor` een Gast de rol Editor geven. Omdat deze route
+rechten uitdeelt, is hij bewust klein en streng gehouden:
+
+- **Alleen Admin**, met een eigen policy `IsAdmin`. Die staat hier op de **hele controller**: alles onder
+  `api/admin` is beheer, dus een route die later wordt toegevoegd, is meteen ook afgeschermd. Een Editor
+  krijgt 403.
+- **Alleen een gewone Gast** kan Editor worden. Is de gebruiker al Editor of Admin, dan volgt 409 en
+  verandert er niets. Zo kan deze route niets wijzigen aan een account dat al schrijfrechten heeft.
+- **Rol en SecurityStamp samen in één transactie.** `AddToRoleAsync` vernieuwt de SecurityStamp niet zelf,
+  dus de service roept daarna `UpdateSecurityStampAsync` aan. Mislukt een van de twee, dan wordt alles
+  teruggedraaid.
+- **Logging:** elke toekenning wordt gelogd met de id van de Admin en van de gebruiker, zodat achteraf
+  na te gaan is wie wie Editor heeft gemaakt.
+- Rollen **intrekken** kan (nog) niet; dat vraagt de opdracht niet en houdt de route klein.
+
+De logica staat in `UserAdminService`, net als bij projecten en blogposts: de controller vertaalt alleen
+de uitkomst naar een statuscode (200, 404 of 409). De gebruikerslijst (`GET /api/admin/users`) haalt alle
+gebruikers met hun rollen in één query op, in plaats van per gebruiker een aparte query.
+
+### 7.8 Overige beveiligingskeuzes
 
 - **Lockout na 3 foute wachtwoorden** (5 minuten). Dat maakt wachtwoorden raden (brute force) veel
   trager. De keerzijde is dat iemand een account tijdelijk kan blokkeren door expres foute wachtwoorden

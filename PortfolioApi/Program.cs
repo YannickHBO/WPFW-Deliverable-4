@@ -56,12 +56,15 @@ builder.Services.ConfigureApplicationCookie(options =>
 builder.Services.Configure<SecurityStampValidatorOptions>(options => options.ValidationInterval = TimeSpan.Zero);
 
 // Authorization: who may write. Admin is named explicitly; it doesn't inherit Editor's rights.
+// User management is for Admins only.
 builder.Services.AddAuthorizationBuilder()
-    .AddPolicy(Policies.CanEditContent, policy => policy.RequireRole(RoleNames.Editor, RoleNames.Admin));
+    .AddPolicy(Policies.CanEditContent, policy => policy.RequireRole(RoleNames.Editor, RoleNames.Admin))
+    .AddPolicy(Policies.IsAdmin, policy => policy.RequireRole(RoleNames.Admin));
 
 // Application logic: services injected into the controllers via constructor injection.
 builder.Services.AddScoped<IProjectService, ProjectService>();
 builder.Services.AddScoped<IBlogPostService, BlogPostService>();
+builder.Services.AddScoped<IUserAdminService, UserAdminService>();
 
 // HTTP layer + Swagger (Swashbuckle.AspNetCore).
 builder.Services.AddControllers();

@@ -19,9 +19,9 @@ public class AuthController(UserManager<User> userManager, SignInManager<User> s
 {
     /// <summary>Creates an account with the role Gast. Never assigns Editor or Admin. Does not sign in.</summary>
     [HttpPost("register")]
-    [ProducesResponseType<CurrentUserDto>(StatusCodes.Status201Created)]
+    [ProducesResponseType<UserDto>(StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    public async Task<ActionResult<CurrentUserDto>> Register(RegisterDto dto)
+    public async Task<ActionResult<UserDto>> Register(RegisterDto dto)
     {
         var user = new User { UserName = dto.Email, Email = dto.Email };
 
@@ -37,15 +37,15 @@ public class AuthController(UserManager<User> userManager, SignInManager<User> s
             return IdentityErrors(roleAdded);
         }
 
-        return StatusCode(StatusCodes.Status201Created, new CurrentUserDto(user.Id, user.Email, [RoleNames.Guest]));
+        return StatusCode(StatusCodes.Status201Created, new UserDto(user.Id, user.Email, [RoleNames.Guest]));
     }
 
     /// <summary>Checks the password and, on success, returns the authentication cookie (Set-Cookie).</summary>
     [HttpPost("login")]
-    [ProducesResponseType<CurrentUserDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType<UserDto>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-    public async Task<ActionResult<CurrentUserDto>> Login(LoginDto dto)
+    public async Task<ActionResult<UserDto>> Login(LoginDto dto)
     {
         // isPersistent: false = a session cookie, gone when the browser closes.
         // lockoutOnFailure: true = after 3 wrong passwords the account is locked (see Program.cs).
@@ -58,7 +58,7 @@ public class AuthController(UserManager<User> userManager, SignInManager<User> s
 
         var user = await userManager.FindByEmailAsync(dto.Email);
         var roles = await userManager.GetRolesAsync(user!);
-        return Ok(new CurrentUserDto(user!.Id, user.Email!, roles.ToList()));
+        return Ok(new UserDto(user!.Id, user.Email!, roles.ToList()));
     }
 
     /// <summary>Removes the authentication cookie. Always 204, also when nobody was signed in.</summary>
@@ -73,10 +73,10 @@ public class AuthController(UserManager<User> userManager, SignInManager<User> s
     /// <summary>Who is signed in, read from the cookie. The SPA calls this on start-up.</summary>
     [HttpGet("me")]
     [Authorize]
-    [ProducesResponseType<CurrentUserDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType<UserDto>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-    public ActionResult<CurrentUserDto> Me() =>
-        Ok(new CurrentUserDto(
+    public ActionResult<UserDto> Me() =>
+        Ok(new UserDto(
             User.FindFirstValue(ClaimTypes.NameIdentifier)!,
             User.FindFirstValue(ClaimTypes.Email) ?? User.Identity!.Name!,
             User.FindAll(ClaimTypes.Role).Select(claim => claim.Value).ToList()));

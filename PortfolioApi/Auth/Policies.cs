@@ -8,4 +8,7 @@ public static class Policies
     /// both are named explicitly, because Admin does not inherit Editor's rights automatically.
     /// </summary>
     public const string CanEditContent = "CanEditContent";
+
+    /// <summary>User management (api/admin/...). Requires the role Admin; Editor is not enough.</summary>
+    public const string IsAdmin = "IsAdmin";
 }
