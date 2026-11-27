@@ -1,10 +1,15 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using PortfolioApi.Auth;
 using PortfolioApi.Dtos;
 using PortfolioApi.Services;
 
 namespace PortfolioApi.Controllers;
 
-/// <summary>HTTP layer only: routing, status codes and validation results. Logic lives in IProjectService.</summary>
+/// <summary>
+/// HTTP layer only: routing, status codes, validation results and who may call what. Logic lives in IProjectService.
+/// Reading is public; creating, updating and deleting require the policy CanEditContent (Editor or Admin).
+/// </summary>
 [ApiController]
 [Route("api/projects")]
 [Produces("application/json")]
@@ -25,8 +30,11 @@ public class ProjectsController(IProjectService projectService) : ControllerBase
     }
 
     [HttpPost]
+    [Authorize(Policy = Policies.CanEditContent)]
     [ProducesResponseType<ProjectDto>(StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<ActionResult<ProjectDto>> Create(CreateProjectDto dto)
     {
         var created = await projectService.CreateAsync(dto);
@@ -34,9 +42,12 @@ public class ProjectsController(IProjectService projectService) : ControllerBase
     }
 
     [HttpPut("{id:int}")]
+    [Authorize(Policy = Policies.CanEditContent)]
     [ProducesResponseType<ProjectDto>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<ActionResult<ProjectDto>> Update(int id, UpdateProjectDto dto)
     {
         var updated = await projectService.UpdateAsync(id, dto);
@@ -44,8 +55,11 @@ public class ProjectsController(IProjectService projectService) : ControllerBase
     }
 
     [HttpDelete("{id:int}")]
+    [Authorize(Policy = Policies.CanEditContent)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> Delete(int id) =>
         await projectService.DeleteAsync(id) ? NoContent() : NotFound();
 }
