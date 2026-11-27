@@ -1,9 +1,14 @@
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using PortfolioApi.Models;
 
 namespace PortfolioApi.Data;
 
-public class PortfolioDbContext(DbContextOptions<PortfolioDbContext> options) : DbContext(options)
+/// <summary>
+/// One database for the portfolio content and the user accounts. IdentityDbContext adds the
+/// AspNetUsers, AspNetRoles, AspNetUserRoles (and a few more) tables next to our own.
+/// </summary>
+public class PortfolioDbContext(DbContextOptions<PortfolioDbContext> options) : IdentityDbContext<User>(options)
 {
     public DbSet<Project> Projects => Set<Project>();
     public DbSet<BlogPost> BlogPosts => Set<BlogPost>();
@@ -11,6 +16,10 @@ public class PortfolioDbContext(DbContextOptions<PortfolioDbContext> options) : 
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        // Configures the Identity tables (keys, indexes). Must run first, or EF Core
+        // throws because IdentityUserLogin and friends have no primary key.
+        base.OnModelCreating(modelBuilder);
+
         modelBuilder.Entity<Project>(project =>
         {
             project.Property(p => p.Title).HasMaxLength(100).IsRequired();
@@ -39,7 +48,7 @@ public class PortfolioDbContext(DbContextOptions<PortfolioDbContext> options) : 
                     Tags = ["Kubernetes", "Docker", "DevOps"] },
                 new Project { Id = 6, Title = "WPFWDesigns Portfolio", Category = "Web development", Date = new DateOnly(2026, 9, 7), InProgress = true,
                     Description = "This website: a React frontend with a typewriter look, weather-based dark mode and photo galleries, backed by my own ASP.NET Core Web API that stores projects and blog posts in SQL Server via EF Core.",
-                    GitHubUrl = "https://github.com/YannickHBO/WPFW-Deliverable-3",
+                    GitHubUrl = "https://github.com/YannickHBO/WPFW-Deliverable-4",
                     Tags = ["React", "ASP.NET Core", "SQL Server"] },
                 // Private repository, so no GitHubUrl: shown as closed source.
                 new Project { Id = 7, Title = "UI Rearrange (GW2 addon)", Category = "Game modding", Date = new DateOnly(2026, 11, 11), InProgress = true,
