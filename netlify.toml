@@ -1,0 +1,43 @@
+# Netlify: builds and hosts the React frontend (client/) and forwards /api to the Azure API.
+# Everything Netlify needs is in this file, so the settings are versioned with the code.
+
+[build]
+  # The React app lives in client/; Netlify runs the build command there and publishes client/dist.
+  base = "client"
+  command = "npm run build"
+  publish = "dist"
+
+[build.environment]
+  # Vite 8 needs a recent Node.js; 24 is the current LTS version.
+  NODE_VERSION = "24"
+
+# 1. API proxy. The browser only talks to the Netlify domain; Netlify forwards /api/* to Azure.
+#    So the authentication cookie is a first-party cookie (not blocked as third-party) and no CORS
+#    is needed - the same as the Vite proxy during development (client/vite.config.js).
+#    status 200 = proxy (rewrite), not a redirect: the address in the browser stays the same.
+[[redirects]]
+  from = "/api/*"
+  to = "https://wpfwdesigns-api.azurewebsites.net/api/:splat"
+  status = 200
+  force = true
+
+# 2. Single-page app: every other path (/blog, /projects, ...) gets index.html, and React Router
+#    shows the right page. Without this rule, refreshing /blog would give a 404. Real files
+#    (JavaScript, CSS, images) are served as they are, because this rule is not forced.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+# Security headers for every page.
+[[headers]]
+  for = "/*"
+  [headers.values]
+    # The site may not be shown in a frame on another site (clickjacking).
+    X-Frame-Options = "DENY"
+    # The browser must not guess a file's type (e.g. run an "image" as a script).
+    X-Content-Type-Options = "nosniff"
+    # Other sites only see the domain a visitor came from, not the full address.
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    # The site doesn't use the camera, microphone or location; nobody may ask for them.
+    Permissions-Policy = "camera=(), microphone=(), geolocation=()"
