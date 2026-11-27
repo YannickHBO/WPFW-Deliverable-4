@@ -91,9 +91,12 @@ builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
 
-// Apply pending EF Core migrations on startup, so the database and tables exist.
-using (var scope = app.Services.CreateScope())
+// Apply pending EF Core migrations on startup, so the database and tables exist. On by default;
+// the tests switch it off (Database:MigrateOnStartup = false): the migrations are written for
+// SQL Server, and the tests create their own SQLite database instead.
+if (app.Configuration.GetValue("Database:MigrateOnStartup", defaultValue: true))
 {
+    using var scope = app.Services.CreateScope();
     var db = scope.ServiceProvider.GetRequiredService<PortfolioDbContext>();
     db.Database.Migrate();
 }

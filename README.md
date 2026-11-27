@@ -25,6 +25,10 @@ PortfolioApi/
 ├── Data/          PortfolioDbContext (Identity-tabellen + seed data)
 ├── Migrations/    EF Core-migraties
 └── Program.cs     Dependency injection, Identity, cookie, autorisatie, commit-sync, Swagger, pipeline
+PortfolioApi.Tests/
+├── Integration/   Alle routes via HTTP (WebApplicationFactory + SQLite in-memory)
+├── Unit/          Services, regels, mappings, GitHub-client en achtergrondservice los getest
+└── Support/       Test-factory en zelfgemaakte fakes
 scripts/
 └── assign-role.sql   Lokaal een rol (Editor/Admin) toekennen
 ```
@@ -185,6 +189,28 @@ de tekst, het tijdstip van de commit (Nederlandse tijd) de publicatiedatum.
   ```
 
 - **Uitzetten:** zet `GitHub:SyncEnabled` op `false`. De tests doen dat ook, zodat ze nooit GitHub aanroepen.
+
+## Testen
+
+Het xUnit-testproject `PortfolioApi.Tests` staat in dezelfde solution. Vanuit de root van de repository:
+
+```bash
+dotnet test
+```
+
+Er is geen SQL Server, internet of GitHub nodig: de tests starten de API in het geheugen op een eigen
+**SQLite-database** (los van `PortfolioDb`) en gebruiken een nep-GitHub. Alle routes zijn via HTTP getest,
+zonder aanmelding, als Gast, als Editor en als Admin.
+
+Coverage meten (eenmalig `dotnet tool install -g dotnet-reportgenerator-globaltool`):
+
+```bash
+dotnet test --settings PortfolioApi.Tests/coverage.runsettings --results-directory TestResults
+reportgenerator -reports:"TestResults/**/coverage.cobertura.xml" -targetdir:coveragereport -reporttypes:"Html;TextSummary"
+```
+
+De opbouw van de tests, de **route- en testmatrix** (per route wie toegang heeft, de testnamen en de
+verwachte HTTP-resultaten) en de **onderbouwing van de coverage** staan in [TESTEN.md](TESTEN.md).
 
 ## Frontend starten
 
