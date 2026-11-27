@@ -1,0 +1,78 @@
+# Backend: run the tests on every push and pull request; deploy to Azure App Service only from main,
+# and only when all tests pass.
+#
+# Signing in to Azure uses OpenID Connect (OIDC): GitHub proves to Azure who it is for this one run.
+# No Azure password or publish profile is stored in GitHub. The three IDs below are not secrets in
+# themselves, but are kept as repository secrets so they don't end up in the logs.
+#
+# Actions are pinned to a full commit SHA (the tag is in the comment): a tag can be moved to other
+# code later, a commit SHA can't.
+
+name: Backend - test en deploy
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "PortfolioApi/**"
+      - "PortfolioApi.Tests/**"
+      - "PortfolioApi.slnx"
+      - ".github/workflows/backend.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "PortfolioApi/**"
+      - "PortfolioApi.Tests/**"
+      - "PortfolioApi.slnx"
+      - ".github/workflows/backend.yml"
+  workflow_dispatch: # A "Run workflow" button in the Actions tab, to deploy by hand.
+
+# Default for all jobs: read the code, nothing more.
+permissions:
+  contents: read
+
+# Never two deploys at the same time; a newer push waits for the running one.
+concurrency:
+  group: backend-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  test:
+    name: Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
+        with:
+          dotnet-version: "10.0.x"
+      - name: dotnet test
+        run: dotnet test --configuration Release
+
+  deploy:
+    name: Deploy naar Azure
+    needs: test
+    # Only from main (a push or the button), never from a pull request.
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: production
+    permissions:
+      contents: read
+      id-token: write # Needed for the OIDC sign-in to Azure.
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
+        with:
+          dotnet-version: "10.0.x"
+      - name: dotnet publish
+        run: dotnet publish PortfolioApi/PortfolioApi.csproj --configuration Release --output publish
+      - name: Inloggen bij Azure (OIDC)
+        uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906 # v3.1.0
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      - name: Deploy naar App Service
+        uses: azure/webapps-deploy@02a81bead70021f5284939794bcec79c271ab383 # v3.0.8
+        with:
+          app-name: ${{ vars.AZURE_WEBAPP_NAME }}
+          package: publish
