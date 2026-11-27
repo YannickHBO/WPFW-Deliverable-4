@@ -199,7 +199,28 @@ eerst zelf (met een eigen wachtwoord dat alleen als hash in de lokale database s
 het script met het e-mailadres en de rol als `sqlcmd`-variabelen. Er staan dus geen e-mailadressen of
 wachtwoorden in de repository.
 
-### 7.7 Overige beveiligingskeuzes
+### 7.7 Beheerroute: een Gast Editor maken
+
+Een Admin kan via `POST /api/admin/users/{id}/editor` een Gast de rol Editor geven. Omdat deze route
+rechten uitdeelt, is hij bewust klein en streng gehouden:
+
+- **Alleen Admin**, met een eigen policy `IsAdmin`. Die staat hier op de **hele controller**: alles onder
+  `api/admin` is beheer, dus een route die later wordt toegevoegd, is meteen ook afgeschermd. Een Editor
+  krijgt 403.
+- **Alleen een gewone Gast** kan Editor worden. Is de gebruiker al Editor of Admin, dan volgt 409 en
+  verandert er niets. Zo kan deze route niets wijzigen aan een account dat al schrijfrechten heeft.
+- **Rol en SecurityStamp samen in één transactie.** `AddToRoleAsync` vernieuwt de SecurityStamp niet zelf,
+  dus de service roept daarna `UpdateSecurityStampAsync` aan. Mislukt een van de twee, dan wordt alles
+  teruggedraaid.
+- **Logging:** elke toekenning wordt gelogd met de id van de Admin en van de gebruiker, zodat achteraf
+  na te gaan is wie wie Editor heeft gemaakt.
+- Rollen **intrekken** kan (nog) niet; dat vraagt de opdracht niet en houdt de route klein.
+
+De logica staat in `UserAdminService`, net als bij projecten en blogposts: de controller vertaalt alleen
+de uitkomst naar een statuscode (200, 404 of 409). De gebruikerslijst (`GET /api/admin/users`) haalt alle
+gebruikers met hun rollen in één query op, in plaats van per gebruiker een aparte query.
+
+### 7.8 Overige beveiligingskeuzes
 
 - **Lockout na 3 foute wachtwoorden** (5 minuten). Dat maakt wachtwoorden raden (brute force) veel
   trager. De keerzijde is dat iemand een account tijdelijk kan blokkeren door expres foute wachtwoorden
@@ -211,3 +232,73 @@ wachtwoorden in de repository.
 - **Geen geheimen in de repository:** de connectionstring gebruikt Windows-authenticatie, een SQL-login
   hoort in user-secrets, en de sleutels waarmee de cookie versleuteld wordt (Data Protection) staan in
   het Windows-profiel.
+
+## 8. Commits automatisch op de blog
+
+De blog bestond al grotendeels uit commitberichten, die ik met de hand in de seed data zette. Dat doet
+de API nu zelf: iedere commit op `main` wordt een blogpost.
+
+### 8.1 De API haalt de commits op (polling), GitHub stuurt ze niet (webhook)
+
+Met een **webhook** stuurt GitHub bij elke push een bericht naar de API. Dat kan alleen als GitHub de API
+via internet kan bereiken, en die draait nu alleen lokaal. Daarom vraagt de API zelf de commits op bij de
+GitHub REST API (`GET /repos/{owner}/{repo}/commits`): bij het starten en daarna elke 15 minuten
+(`CommitSyncBackgroundService`), en wanneer een Admin `POST /api/admin/sync-commits` aanroept. Na het
+deployen kan er een webhook bij komen; de polling blijft dan het vangnet.
+
+Synchroniseren bij het **starten** is bewust: bij goedkope hosting (zoals het gratis plan van Azure App
+Service) valt een app zonder bezoekers in slaap, en dan loopt er ook geen timer. De eerste bezoeker
+maakt de app wakker en de blog is meteen weer bij.
+
+### 8.2 De database is de cache
+
+De sync slaat elke commit op als gewone `BlogPost`. De blogpagina en `GET /api/blogposts` praten dus
+nooit met GitHub. Is GitHub niet bereikbaar (storing, rate limit, geen internet), dan logt de sync een
+waarschuwing, blijft alles wat al in de database staat zichtbaar, en probeert de sync het de volgende
+ronde opnieuw. De admin-route geeft in dat geval **502 Bad Gateway**: de API zelf werkt, de dienst
+waar hij van afhangt niet.
+
+**ETag:** GitHub stuurt bij elk antwoord een ETag mee. De sync stuurt die de volgende keer terug
+(`If-None-Match`); is er niets veranderd, dan antwoordt GitHub `304 Not Modified`, en zo'n antwoord telt
+niet mee voor de rate limit van 60 verzoeken per uur zonder token. De ETag wordt pas onthouden als de
+nieuwe posts zijn opgeslagen; anders zou een mislukte opslag ertoe leiden dat GitHub de volgende keer
+"niets veranderd" zegt en die commits nooit een post worden.
+
+### 8.3 Geen dubbele posts, en verwijderd blijft verwijderd
+
+- `BlogPost.CommitSha` heeft een **unieke index** (alleen voor posts met een SHA), zodat een commit nooit
+  twee keer een post kan worden.
+- De tabel **`SyncedCommits`** onthoudt elke commit die de sync heeft verwerkt. Verwijdert een Editor
+  een commitpost, dan staat de commit nog in die tabel en maakt de sync hem niet opnieuw aan.
+- De 18 commitposts die al in de seed data stonden, hebben hun SHA gekregen. De sync herkent ze en zet
+  ze alleen in `SyncedCommits`, zonder nieuwe post.
+- Er draait altijd maar **één sync tegelijk** (een `SemaphoreSlim`), anders zouden de achtergrondsync en
+  de admin-route allebei dezelfde nieuwe commit kunnen toevoegen.
+
+### 8.4 Welke commits, en hoe ze eruitzien
+
+- Alleen commits op **`main`**: werk van een feature branch verschijnt pas na de merge. **Merge commits**
+  (meer dan één parent) worden overgeslagen; die bevatten geen eigen werk.
+- De **titel** volgt de bestaande reeks: "Blog Post N", waarbij N één hoger is dan de hoogste bestaande.
+  Nieuwe commits worden van oud naar nieuw verwerkt, zodat de nummers de volgorde van de commits volgen.
+- De **datum** is de auteursdatum van de commit (zoals `git log` die toont) in Nederlandse tijd, net als
+  in de seed data.
+- `CommitSha` wordt **alleen door de sync** gezet. De create- en update-DTO's hebben dat veld niet, dus via
+  de API kan niemand een handgeschreven post als commit laten lijken. Een Editor kan de tekst van een
+  commitpost wel aanpassen; de SHA blijft dan staan.
+
+### 8.5 Commit of handgeschreven: zichtbaar in API en frontend
+
+`BlogPostDto` heeft `commitSha` en `commitUrl`; bij een handgeschreven post zijn die `null`. De blogpagina
+toont bij een commitpost een link **`commit 4c44f35 ↗`** onder de datum, met de korte SHA van 7 tekens
+(zoals `git log --oneline`). Zo blijft de link smal genoeg voor de datumkolom en voor telefoons; mocht hij
+toch niet passen, dan wordt de SHA met "…" afgekapt in plaats van dat de pagina breder wordt. De volledige
+SHA staat in de tooltip, en een screenreader hoort dat de link GitHub in een nieuw tabblad opent.
+
+### 8.6 Testbaar en zonder geheimen
+
+De GitHub-aanroep zit achter een interface (`IGitHubCommitClient`), zodat de tests een nep-versie met
+vaste commits gebruiken en nooit echt GitHub aanroepen. De tijd komt van `TimeProvider`, zodat ook die in
+tests vast te zetten is. De repository is openbaar, dus een token is niet nodig. Wie er toch een gebruikt
+(voor een hogere rate limit), zet het in de user-secrets of in de configuratie van de host, nooit in de
+repository.

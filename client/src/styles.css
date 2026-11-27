@@ -1301,6 +1301,19 @@ body.theme-dark .page-intro {
     outline-offset: 2px;
 }
 
+/* Commit link under a blog post's date: on its own line, a little narrower than the project badges so
+   "commit 4c44f35 ↗" fits the 150px date column. Should it ever not fit, the SHA is cut off with "…"
+   instead of pushing the layout wider (phones included). */
+.blog-commit {
+    display: inline-block;
+    max-width: 100%;
+    margin-top: 8px;
+    padding: 2px 8px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    vertical-align: top;
+}
+
 .project-card .project-card__subtitle {
     margin: 8px 0 14px;
     color: #475569;

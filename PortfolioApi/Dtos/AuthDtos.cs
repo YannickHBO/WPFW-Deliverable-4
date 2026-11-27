@@ -16,5 +16,5 @@ public record LoginDto(
     [Required, EmailAddress, StringLength(256)] string Email,
     [Required, StringLength(128)] string Password);
 
-/// <summary>Who is signed in, for the SPA: shown after register/login and by GET /api/auth/me.</summary>
-public record CurrentUserDto(string Id, string Email, IReadOnlyList<string> Roles);
+/// <summary>A user account as the API shows it: after register/login, by GET /api/auth/me and in the admin user list.</summary>
+public record UserDto(string Id, string Email, IReadOnlyList<string> Roles);

@@ -186,6 +186,11 @@ namespace PortfolioApi.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<string>("CommitSha")
+                        .HasMaxLength(40)
+                        .HasColumnType("nchar(40)")
+                        .IsFixedLength();
+
                     b.Property<string>("Content")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
@@ -200,6 +205,10 @@ namespace PortfolioApi.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("CommitSha")
+                        .IsUnique()
+                        .HasFilter("[CommitSha] IS NOT NULL");
+
                     b.ToTable("BlogPosts");
 
                     b.HasData(
@@ -213,6 +222,7 @@ namespace PortfolioApi.Migrations
                         new
                         {
                             Id = 2,
+                            CommitSha = "0528197412911dc969f23a635a02faa0688c9543",
                             Content = "Add initial todo list to README",
                             PublishedDate = new DateTime(2026, 9, 14, 11, 28, 13, 0, DateTimeKind.Unspecified),
                             Title = "Blog Post 2"
@@ -220,6 +230,7 @@ namespace PortfolioApi.Migrations
                         new
                         {
                             Id = 3,
+                            CommitSha = "2252cf0cf4cfb70015a8c0563ef9fc14a19f1324",
                             Content = "v0.1",
                             PublishedDate = new DateTime(2026, 9, 14, 12, 53, 58, 0, DateTimeKind.Unspecified),
                             Title = "Blog Post 3"
@@ -227,6 +238,7 @@ namespace PortfolioApi.Migrations
                         new
                         {
                             Id = 4,
+                            CommitSha = "0789362de27e7d9daeb05bef96225a557d2cf28d",
                             Content = "v.2 changed formatting to allow github pages functionality",
                             PublishedDate = new DateTime(2026, 9, 14, 13, 5, 9, 0, DateTimeKind.Unspecified),
                             Title = "Blog Post 4"
@@ -234,6 +246,7 @@ namespace PortfolioApi.Migrations
                         new
                         {
                             Id = 5,
+                            CommitSha = "1ac0ecc6ecd5234d5c4f33be36e4d56d65ff2503",
                             Content = "v0.3 aria accessibility support, branding design updates, gradient more aggressive.",
                             PublishedDate = new DateTime(2026, 9, 14, 13, 50, 10, 0, DateTimeKind.Unspecified),
                             Title = "Blog Post 5"
@@ -241,6 +254,7 @@ namespace PortfolioApi.Migrations
                         new
                         {
                             Id = 6,
+                            CommitSha = "25d26afc58e3829ed0fed6fa6f4c82f4fbe93863",
                             Content = "v.4 added seemless scrolling functionality that loops through the pages with a small fade effect.",
                             PublishedDate = new DateTime(2026, 9, 14, 14, 3, 29, 0, DateTimeKind.Unspecified),
                             Title = "Blog Post 6"
@@ -248,6 +262,7 @@ namespace PortfolioApi.Migrations
                         new
                         {
                             Id = 7,
+                            CommitSha = "075f6d718512d82f0908b7fcdc02fbea9bdb015b",
                             Content = "v.5 scrolling feature cue is not quite working yet, will give it another look over later.",
                             PublishedDate = new DateTime(2026, 9, 14, 14, 45, 2, 0, DateTimeKind.Unspecified),
                             Title = "Blog Post 7"
@@ -255,6 +270,7 @@ namespace PortfolioApi.Migrations
                         new
                         {
                             Id = 8,
+                            CommitSha = "4d65502938333037cc390c27d2bff8d2bff26939",
                             Content = "scroll functionality has been rewritten, scrolling cue added based on arthurs advice. minimal page length removed to reduce unnecessary scrolling. Profile picture placeholder updated and adjusted to be more ipad userfriendly. Aria labels added to scrolling cues and project data moved from being hardcoded in html to project.json",
                             PublishedDate = new DateTime(2026, 9, 28, 13, 46, 9, 0, DateTimeKind.Unspecified),
                             Title = "Blog Post 8"
@@ -262,6 +278,7 @@ namespace PortfolioApi.Migrations
                         new
                         {
                             Id = 9,
+                            CommitSha = "8c372aef993dd5dc1bd6061d7b9f707624666886",
                             Content = "added search bar so users can filter through projects",
                             PublishedDate = new DateTime(2026, 9, 28, 13, 51, 7, 0, DateTimeKind.Unspecified),
                             Title = "Blog Post 9"
@@ -269,6 +286,7 @@ namespace PortfolioApi.Migrations
                         new
                         {
                             Id = 10,
+                            CommitSha = "4f61638604efc42d9eaff879dd7fc1abdf346e09",
                             Content = "contact form added with a bunch of validation and user feedback. Weather api implemented and coupled to new dark mode feature. (weather code >3: darkmode on by default).",
                             PublishedDate = new DateTime(2026, 9, 28, 14, 51, 56, 0, DateTimeKind.Unspecified),
                             Title = "Blog Post 10"
@@ -276,6 +294,7 @@ namespace PortfolioApi.Migrations
                         new
                         {
                             Id = 11,
+                            CommitSha = "fe3a821302921ab374c16b3dacff556cbcd232ca",
                             Content = "Added extra elements to dark mode: logo with inverted colors, higher contrast labels. Also reduced the width of the hamburgermenu when expanded by replacing light and dark text with sun and moon icons, also removed redundant auto:mode text since it will be very visually apparent already what mode is currently running.",
                             PublishedDate = new DateTime(2026, 9, 28, 15, 17, 49, 0, DateTimeKind.Unspecified),
                             Title = "Blog Post 11"
@@ -290,6 +309,7 @@ namespace PortfolioApi.Migrations
                         new
                         {
                             Id = 13,
+                            CommitSha = "f7353fb131697e83aec75eb39167cd3490fb436d",
                             Content = "Portfolio API (.NET 10, EF Core, SQL Server) en React-frontend die projecten en blogposts uit de API laadt",
                             PublishedDate = new DateTime(2026, 11, 7, 14, 11, 50, 0, DateTimeKind.Unspecified),
                             Title = "Blog Post 13"
@@ -297,6 +317,7 @@ namespace PortfolioApi.Migrations
                         new
                         {
                             Id = 14,
+                            CommitSha = "d0d06a2445390303822de4f8c36fdf836c056028",
                             Content = "Clean up README by removing outdated sections",
                             PublishedDate = new DateTime(2026, 11, 7, 14, 20, 19, 0, DateTimeKind.Unspecified),
                             Title = "Blog Post 14"
@@ -304,6 +325,7 @@ namespace PortfolioApi.Migrations
                         new
                         {
                             Id = 15,
+                            CommitSha = "dec11af5460c3955d02e5a8d0e7a0bc6fb33f412",
                             Content = "Add blog galleries, project tags and site content",
                             PublishedDate = new DateTime(2026, 11, 7, 15, 53, 29, 0, DateTimeKind.Unspecified),
                             Title = "Blog Post 15"
@@ -311,6 +333,7 @@ namespace PortfolioApi.Migrations
                         new
                         {
                             Id = 16,
+                            CommitSha = "865d8e8c1684256cd15c52df41b37479fd016bfe",
                             Content = "Revert \"Add blog galleries, project tags and site content\"",
                             PublishedDate = new DateTime(2026, 11, 7, 15, 55, 35, 0, DateTimeKind.Unspecified),
                             Title = "Blog Post 16"
@@ -318,6 +341,7 @@ namespace PortfolioApi.Migrations
                         new
                         {
                             Id = 17,
+                            CommitSha = "b3531cc585024485bb365fe9d87e61737b2d5de0",
                             Content = "Add blog galleries, project tags and site content",
                             PublishedDate = new DateTime(2026, 11, 7, 16, 8, 50, 0, DateTimeKind.Unspecified),
                             Title = "Blog Post 17"
@@ -325,6 +349,7 @@ namespace PortfolioApi.Migrations
                         new
                         {
                             Id = 18,
+                            CommitSha = "e38e03e115d7db9aec65219bae7e5a9bdf77efbc",
                             Content = "Enhance README with setup and architecture details",
                             PublishedDate = new DateTime(2026, 11, 7, 16, 27, 9, 0, DateTimeKind.Unspecified),
                             Title = "Blog Post 18"
@@ -332,6 +357,7 @@ namespace PortfolioApi.Migrations
                         new
                         {
                             Id = 19,
+                            CommitSha = "b5dbd8c4f11bf31f86f4c82b25b86760c09713e2",
                             Content = "Updated readme to add frontend run commands",
                             PublishedDate = new DateTime(2026, 11, 8, 14, 21, 59, 0, DateTimeKind.Unspecified),
                             Title = "Blog Post 19"
@@ -339,6 +365,7 @@ namespace PortfolioApi.Migrations
                         new
                         {
                             Id = 20,
+                            CommitSha = "8a4f4a0dfd4a736c73a126f10242f2f0fbbeb117",
                             Content = "Readme opgeschoond, technische documentatie naar architectuur document verplaatst.",
                             PublishedDate = new DateTime(2026, 11, 8, 19, 53, 43, 0, DateTimeKind.Unspecified),
                             Title = "Blog Post 20"
@@ -579,6 +606,21 @@ namespace PortfolioApi.Migrations
                             Tags = "[\"C\\u002B\\u002B\",\"DirectX 11\",\"ImGui\"]",
                             Title = "UI Rearrange (GW2 addon)"
                         });
+                });
+
+            modelBuilder.Entity("PortfolioApi.Models.SyncedCommit", b =>
+                {
+                    b.Property<string>("Sha")
+                        .HasMaxLength(40)
+                        .HasColumnType("nchar(40)")
+                        .IsFixedLength();
+
+                    b.Property<DateTime>("SyncedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Sha");
+
+                    b.ToTable("SyncedCommits");
                 });
 
             modelBuilder.Entity("PortfolioApi.Models.User", b =>
