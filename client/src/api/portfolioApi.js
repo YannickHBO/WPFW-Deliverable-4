@@ -11,7 +11,7 @@ async function getJson(path, signal) {
 /** @returns {Promise<Array<{id:number,title:string,description:string,category:string,gitHubUrl:string|null,date:string}>>} */
 export const getProjects = (signal) => getJson('/api/projects', signal);
 
-/** @returns {Promise<Array<{id:number,title:string,content:string,publishedDate:string,images:Array<{url:string,alt:string}>}>>} publishedDate e.g. "2026-09-14T11:28:13" */
+/** @returns {Promise<Array<{id:number,title:string,content:string,publishedDate:string,images:Array<{url:string,alt:string}>,commitSha:string|null,commitUrl:string|null}>>} publishedDate e.g. "2026-09-14T11:28:13"; commitSha/commitUrl only for commit posts */
 export const getBlogPosts = (signal) => getJson('/api/blogposts', signal);
 
 /** Formats an API date ("2026-06-14", or the date part of "2026-06-14T10:30:00") as "June 14, 2026" without timezone shifts. */

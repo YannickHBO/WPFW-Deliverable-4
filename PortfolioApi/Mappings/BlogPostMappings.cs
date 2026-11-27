@@ -1,9 +1,13 @@
 using PortfolioApi.Dtos;
+using PortfolioApi.GitHub;
 using PortfolioApi.Models;
 
 namespace PortfolioApi.Mappings;
 
-/// <summary>Converts between the BlogPost/BlogPostImage entities and their DTOs.</summary>
+/// <summary>
+/// Converts between the BlogPost/BlogPostImage entities and their DTOs. CommitSha is never taken from
+/// a create/update DTO: only the commit sync sets it.
+/// </summary>
 public static class BlogPostMappings
 {
     public static BlogPostDto ToDto(this BlogPost post) =>
@@ -11,7 +15,9 @@ public static class BlogPostMappings
             post.Images
                 .OrderBy(image => image.SortOrder)
                 .Select(image => new BlogPostImageDto(image.Url, image.Alt))
-                .ToList());
+                .ToList(),
+            post.CommitSha,
+            post.CommitSha is null ? null : GitHubRepository.CommitUrl(post.CommitSha));
 
     public static BlogPost ToEntity(this CreateBlogPostDto dto) => new()
     {

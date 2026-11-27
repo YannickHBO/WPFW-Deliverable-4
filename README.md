@@ -12,16 +12,19 @@ De motivatie achter deze keuzes staat in [ARCHITECTUUR.md](ARCHITECTUUR.md).
 
 ```
 PortfolioApi/
-├── Controllers/   ProjectsController, BlogPostsController, AuthController, AdminUsersController (HTTP)
+├── Controllers/   ProjectsController, BlogPostsController, AuthController,
+│                  AdminUsersController, AdminCommitsController (HTTP)
 ├── Services/      IProjectService/ProjectService, IBlogPostService/BlogPostService,
-│                  IUserAdminService/UserAdminService (logica)
+│                  IUserAdminService/UserAdminService, ICommitSyncService/CommitSyncService,
+│                  CommitSyncBackgroundService (logica)
+├── GitHub/        IGitHubCommitClient/GitHubCommitClient (GitHub REST API), GitHubRepository, GitHubOptions
 ├── Auth/          RoleNames (Gast, Editor, Admin) en Policies (CanEditContent, IsAdmin)
 ├── Mappings/      Entity <-> DTO conversie (ToDto, ToEntity, ApplyTo)
 ├── Dtos/          Invoer- en uitvoer-DTO's met validatie
-├── Models/        EF Core-entiteiten: Project, BlogPost, BlogPostImage, User
+├── Models/        EF Core-entiteiten: Project, BlogPost, BlogPostImage, SyncedCommit, User
 ├── Data/          PortfolioDbContext (Identity-tabellen + seed data)
 ├── Migrations/    EF Core-migraties
-└── Program.cs     Dependency injection, Identity, cookie, autorisatie, Swagger, pipeline
+└── Program.cs     Dependency injection, Identity, cookie, autorisatie, commit-sync, Swagger, pipeline
 scripts/
 └── assign-role.sql   Lokaal een rol (Editor/Admin) toekennen
 ```
@@ -103,6 +106,7 @@ cookie daarna automatisch mee, ook vanuit Swagger UI en straks vanuit de React-a
 | `GET /api/auth/me` | Aangemeld | 200 met e-mail en rollen, anders 401 |
 | `GET /api/admin/users` | Admin | 200 met alle accounts en hun rollen |
 | `POST /api/admin/users/{id}/editor` | Admin | 200, 404 bij onbekende gebruiker, 409 als de gebruiker al Editor of Admin is |
+| `POST /api/admin/sync-commits` | Admin | 200 met het aantal nieuwe posts, 502 als GitHub niet bereikbaar is |
 
 Een schrijfverzoek **zonder geldige aanmelding** krijgt **401**, een aangemelde gebruiker **zonder Editor- of
 Admin-rol** krijgt **403**. De API controleert dit zelf met `[Authorize(Policy = Policies.CanEditContent)]`
@@ -155,6 +159,32 @@ krijgt dan een cookie met de nieuwe rol. Zo blijft een cookie nooit geldig met r
   registratie, en hun wachtwoord staat alleen als hash (`AspNetUsers.PasswordHash`) in je lokale database.
 - De cookie wordt versleuteld met ASP.NET Core Data Protection. Lokaal staan die sleutels in je
   Windows-profiel (`%LOCALAPPDATA%\ASP.NET\DataProtection-Keys`), niet in de repository.
+
+## Commits automatisch op de blog
+
+Iedere commit op de `main`-branch van deze repository wordt vanzelf een blogpost: het commitbericht is
+de tekst, het tijdstip van de commit (Nederlandse tijd) de publicatiedatum.
+
+- **Wanneer:** bij het starten van de API en daarna elke 15 minuten (`GitHub:SyncIntervalMinutes` in
+  `appsettings.json`). Een Admin kan ook direct synchroniseren met `POST /api/admin/sync-commits`.
+- **Welke commits:** alleen commits op `main`, dus werk van een feature branch pas nadat die gemerged is.
+  Merge commits ("Merge pull request ...") worden overgeslagen.
+- **Herkenbaar:** een commitpost heeft in de API een `commitSha` en een `commitUrl`; bij een handgeschreven
+  post zijn die `null`. De blogpagina toont bij een commitpost een link `commit 4c44f35 ↗` naar GitHub.
+- **Geen dubbele posts:** elke verwerkte commit wordt onthouden (tabel `SyncedCommits`). Verwijdert een
+  Editor een commitpost, dan komt die niet terug.
+- **GitHub niet bereikbaar:** de blog toont gewoon de posts die al in de database staan; de sync probeert
+  het bij de volgende ronde opnieuw.
+- **Token (optioneel):** de repository is openbaar, dus een token is niet nodig (60 verzoeken per uur, en
+  dankzij de ETag tellen verzoeken zonder wijzigingen niet mee). Wil je toch een token gebruiken, zet het
+  dan in de user-secrets, nooit in `appsettings.json`:
+
+  ```bash
+  cd PortfolioApi
+  dotnet user-secrets set "GitHub:Token" "<read-only token>"
+  ```
+
+- **Uitzetten:** zet `GitHub:SyncEnabled` op `false`. De tests doen dat ook, zodat ze nooit GitHub aanroepen.
 
 ## Frontend starten
 

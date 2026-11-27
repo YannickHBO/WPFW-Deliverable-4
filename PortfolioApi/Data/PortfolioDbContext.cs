@@ -15,6 +15,7 @@ public class PortfolioDbContext(DbContextOptions<PortfolioDbContext> options) : 
     public DbSet<Project> Projects => Set<Project>();
     public DbSet<BlogPost> BlogPosts => Set<BlogPost>();
     public DbSet<BlogPostImage> BlogPostImages => Set<BlogPostImage>();
+    public DbSet<SyncedCommit> SyncedCommits => Set<SyncedCommit>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -63,6 +64,11 @@ public class PortfolioDbContext(DbContextOptions<PortfolioDbContext> options) : 
             post.Property(b => b.Title).HasMaxLength(150).IsRequired();
             post.Property(b => b.Content).IsRequired();
 
+            // A commit can be a blog post only once. Unique index on the SHA; SQL Server only applies it
+            // to rows that have one (filter "CommitSha IS NOT NULL"), so hand-written posts don't clash.
+            post.Property(b => b.CommitSha).HasMaxLength(40).IsFixedLength();
+            post.HasIndex(b => b.CommitSha).IsUnique();
+
             // One post has many images; deleting a post deletes its images.
             post.HasMany(b => b.Images)
                 .WithOne(i => i.BlogPost)
@@ -70,50 +76,75 @@ public class PortfolioDbContext(DbContextOptions<PortfolioDbContext> options) : 
                 .OnDelete(DeleteBehavior.Cascade);
 
             // Seed blog posts: personal milestones plus the git commit history of this project
-            // (commit message + commit date/time). Numbered in chronological order.
+            // (commit message + commit date/time). Numbered in chronological order. Commit posts have
+            // their CommitSha, so the commit sync recognises them and doesn't add them a second time.
             post.HasData(
                 // Not a commit: a personal milestone.
                 new BlogPost { Id = 1, Title = "Blog Post 1", PublishedDate = new DateTime(2026, 5, 24, 21, 0, 0),
                     Content = "Climbed Mount Fuji via the Sengen trail, before the official climbing season had started. The upper mountain was still covered in snow, which made the going slow: the whole journey took 15 hours, with 42 kilometres and roughly 3,000 metres of ascent and descent." },
-                new BlogPost { Id = 2, Title = "Blog Post 2", PublishedDate = new DateTime(2026, 9, 14, 11, 28, 13),
+                new BlogPost { Id = 2, Title = "Blog Post 2", CommitSha = "0528197412911dc969f23a635a02faa0688c9543",
+                    PublishedDate = new DateTime(2026, 9, 14, 11, 28, 13),
                     Content = "Add initial todo list to README" },
-                new BlogPost { Id = 3, Title = "Blog Post 3", PublishedDate = new DateTime(2026, 9, 14, 12, 53, 58),
+                new BlogPost { Id = 3, Title = "Blog Post 3", CommitSha = "2252cf0cf4cfb70015a8c0563ef9fc14a19f1324",
+                    PublishedDate = new DateTime(2026, 9, 14, 12, 53, 58),
                     Content = "v0.1" },
-                new BlogPost { Id = 4, Title = "Blog Post 4", PublishedDate = new DateTime(2026, 9, 14, 13, 5, 9),
+                new BlogPost { Id = 4, Title = "Blog Post 4", CommitSha = "0789362de27e7d9daeb05bef96225a557d2cf28d",
+                    PublishedDate = new DateTime(2026, 9, 14, 13, 5, 9),
                     Content = "v.2 changed formatting to allow github pages functionality" },
-                new BlogPost { Id = 5, Title = "Blog Post 5", PublishedDate = new DateTime(2026, 9, 14, 13, 50, 10),
+                new BlogPost { Id = 5, Title = "Blog Post 5", CommitSha = "1ac0ecc6ecd5234d5c4f33be36e4d56d65ff2503",
+                    PublishedDate = new DateTime(2026, 9, 14, 13, 50, 10),
                     Content = "v0.3 aria accessibility support, branding design updates, gradient more aggressive." },
-                new BlogPost { Id = 6, Title = "Blog Post 6", PublishedDate = new DateTime(2026, 9, 14, 14, 3, 29),
+                new BlogPost { Id = 6, Title = "Blog Post 6", CommitSha = "25d26afc58e3829ed0fed6fa6f4c82f4fbe93863",
+                    PublishedDate = new DateTime(2026, 9, 14, 14, 3, 29),
                     Content = "v.4 added seemless scrolling functionality that loops through the pages with a small fade effect." },
-                new BlogPost { Id = 7, Title = "Blog Post 7", PublishedDate = new DateTime(2026, 9, 14, 14, 45, 2),
+                new BlogPost { Id = 7, Title = "Blog Post 7", CommitSha = "075f6d718512d82f0908b7fcdc02fbea9bdb015b",
+                    PublishedDate = new DateTime(2026, 9, 14, 14, 45, 2),
                     Content = "v.5 scrolling feature cue is not quite working yet, will give it another look over later." },
-                new BlogPost { Id = 8, Title = "Blog Post 8", PublishedDate = new DateTime(2026, 9, 28, 13, 46, 9),
+                new BlogPost { Id = 8, Title = "Blog Post 8", CommitSha = "4d65502938333037cc390c27d2bff8d2bff26939",
+                    PublishedDate = new DateTime(2026, 9, 28, 13, 46, 9),
                     Content = "scroll functionality has been rewritten, scrolling cue added based on arthurs advice. minimal page length removed to reduce unnecessary scrolling. Profile picture placeholder updated and adjusted to be more ipad userfriendly. Aria labels added to scrolling cues and project data moved from being hardcoded in html to project.json" },
-                new BlogPost { Id = 9, Title = "Blog Post 9", PublishedDate = new DateTime(2026, 9, 28, 13, 51, 7),
+                new BlogPost { Id = 9, Title = "Blog Post 9", CommitSha = "8c372aef993dd5dc1bd6061d7b9f707624666886",
+                    PublishedDate = new DateTime(2026, 9, 28, 13, 51, 7),
                     Content = "added search bar so users can filter through projects" },
-                new BlogPost { Id = 10, Title = "Blog Post 10", PublishedDate = new DateTime(2026, 9, 28, 14, 51, 56),
+                new BlogPost { Id = 10, Title = "Blog Post 10", CommitSha = "4f61638604efc42d9eaff879dd7fc1abdf346e09",
+                    PublishedDate = new DateTime(2026, 9, 28, 14, 51, 56),
                     Content = "contact form added with a bunch of validation and user feedback. Weather api implemented and coupled to new dark mode feature. (weather code >3: darkmode on by default)." },
-                new BlogPost { Id = 11, Title = "Blog Post 11", PublishedDate = new DateTime(2026, 9, 28, 15, 17, 49),
+                new BlogPost { Id = 11, Title = "Blog Post 11", CommitSha = "fe3a821302921ab374c16b3dacff556cbcd232ca",
+                    PublishedDate = new DateTime(2026, 9, 28, 15, 17, 49),
                     Content = "Added extra elements to dark mode: logo with inverted colors, higher contrast labels. Also reduced the width of the hamburgermenu when expanded by replacing light and dark text with sun and moon icons, also removed redundant auto:mode text since it will be very visually apparent already what mode is currently running." },
                 // Not a commit: a personal milestone.
                 new BlogPost { Id = 12, Title = "Blog Post 12", PublishedDate = new DateTime(2026, 11, 1, 18, 0, 0),
                     Content = "No commit this time, but definitely a milestone worth logging: today I ran the very first edition of The Hague Marathon. 42.195 kilometres, finished in 3:35:59." },
-                new BlogPost { Id = 13, Title = "Blog Post 13", PublishedDate = new DateTime(2026, 11, 7, 14, 11, 50),
+                new BlogPost { Id = 13, Title = "Blog Post 13", CommitSha = "f7353fb131697e83aec75eb39167cd3490fb436d",
+                    PublishedDate = new DateTime(2026, 11, 7, 14, 11, 50),
                     Content = "Portfolio API (.NET 10, EF Core, SQL Server) en React-frontend die projecten en blogposts uit de API laadt" },
-                new BlogPost { Id = 14, Title = "Blog Post 14", PublishedDate = new DateTime(2026, 11, 7, 14, 20, 19),
+                new BlogPost { Id = 14, Title = "Blog Post 14", CommitSha = "d0d06a2445390303822de4f8c36fdf836c056028",
+                    PublishedDate = new DateTime(2026, 11, 7, 14, 20, 19),
                     Content = "Clean up README by removing outdated sections" },
-                new BlogPost { Id = 15, Title = "Blog Post 15", PublishedDate = new DateTime(2026, 11, 7, 15, 53, 29),
+                new BlogPost { Id = 15, Title = "Blog Post 15", CommitSha = "dec11af5460c3955d02e5a8d0e7a0bc6fb33f412",
+                    PublishedDate = new DateTime(2026, 11, 7, 15, 53, 29),
                     Content = "Add blog galleries, project tags and site content" },
-                new BlogPost { Id = 16, Title = "Blog Post 16", PublishedDate = new DateTime(2026, 11, 7, 15, 55, 35),
+                new BlogPost { Id = 16, Title = "Blog Post 16", CommitSha = "865d8e8c1684256cd15c52df41b37479fd016bfe",
+                    PublishedDate = new DateTime(2026, 11, 7, 15, 55, 35),
                     Content = "Revert \"Add blog galleries, project tags and site content\"" },
-                new BlogPost { Id = 17, Title = "Blog Post 17", PublishedDate = new DateTime(2026, 11, 7, 16, 8, 50),
+                new BlogPost { Id = 17, Title = "Blog Post 17", CommitSha = "b3531cc585024485bb365fe9d87e61737b2d5de0",
+                    PublishedDate = new DateTime(2026, 11, 7, 16, 8, 50),
                     Content = "Add blog galleries, project tags and site content" },
-                new BlogPost { Id = 18, Title = "Blog Post 18", PublishedDate = new DateTime(2026, 11, 7, 16, 27, 9),
+                new BlogPost { Id = 18, Title = "Blog Post 18", CommitSha = "e38e03e115d7db9aec65219bae7e5a9bdf77efbc",
+                    PublishedDate = new DateTime(2026, 11, 7, 16, 27, 9),
                     Content = "Enhance README with setup and architecture details" },
-                new BlogPost { Id = 19, Title = "Blog Post 19", PublishedDate = new DateTime(2026, 11, 8, 14, 21, 59),
+                new BlogPost { Id = 19, Title = "Blog Post 19", CommitSha = "b5dbd8c4f11bf31f86f4c82b25b86760c09713e2",
+                    PublishedDate = new DateTime(2026, 11, 8, 14, 21, 59),
                     Content = "Updated readme to add frontend run commands" },
-                new BlogPost { Id = 20, Title = "Blog Post 20", PublishedDate = new DateTime(2026, 11, 8, 19, 53, 43),
+                new BlogPost { Id = 20, Title = "Blog Post 20", CommitSha = "8a4f4a0dfd4a736c73a126f10242f2f0fbbeb117",
+                    PublishedDate = new DateTime(2026, 11, 8, 19, 53, 43),
                     Content = "Readme opgeschoond, technische documentatie naar architectuur document verplaatst." });
+        });
+
+        modelBuilder.Entity<SyncedCommit>(commit =>
+        {
+            commit.HasKey(c => c.Sha);
+            commit.Property(c => c.Sha).HasMaxLength(40).IsFixedLength();
         });
 
         modelBuilder.Entity<BlogPostImage>(image =>

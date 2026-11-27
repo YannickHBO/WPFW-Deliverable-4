@@ -33,6 +33,15 @@ export default function BlogPage() {
                   <br />
                   {formatTime(post.publishedDate)}
                 </time>
+                {/* Commit posts link to the commit on GitHub; the short SHA (7 characters, like git log
+                    --oneline) keeps the link narrow enough for the date column and phones. */}
+                {post.commitUrl && (
+                  <a className="badge badge--link blog-commit" href={post.commitUrl} target="_blank" rel="noreferrer"
+                    title={post.commitSha}>
+                    commit {post.commitSha.slice(0, 7)} <span aria-hidden="true">↗</span>
+                    <span className="is-visually-hidden">: view on GitHub (opens in a new tab)</span>
+                  </a>
+                )}
               </p>
               <h2>{post.title}</h2>
               <p>{post.content}</p>

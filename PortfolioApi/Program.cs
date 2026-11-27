@@ -1,7 +1,9 @@
+using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using PortfolioApi.Auth;
 using PortfolioApi.Data;
+using PortfolioApi.GitHub;
 using PortfolioApi.Models;
 using PortfolioApi.Services;
 
@@ -66,8 +68,24 @@ builder.Services.AddScoped<IProjectService, ProjectService>();
 builder.Services.AddScoped<IBlogPostService, BlogPostService>();
 builder.Services.AddScoped<IUserAdminService, UserAdminService>();
 
-// HTTP layer + Swagger (Swashbuckle.AspNetCore).
-builder.Services.AddControllers();
+// Commit sync: commits on GitHub become blog posts (background service + POST /api/admin/sync-commits).
+builder.Services.Configure<GitHubOptions>(builder.Configuration.GetSection(GitHubOptions.SectionName));
+builder.Services.AddHttpClient<IGitHubCommitClient, GitHubCommitClient>(client =>
+{
+    client.BaseAddress = new Uri("https://api.github.com/");
+    client.DefaultRequestHeaders.UserAgent.ParseAdd("PortfolioApi");        // GitHub refuses requests without one.
+    client.DefaultRequestHeaders.Accept.ParseAdd("application/vnd.github+json");
+    client.DefaultRequestHeaders.Add("X-GitHub-Api-Version", "2022-11-28");
+    client.Timeout = TimeSpan.FromSeconds(15);                              // Don't wait long for a slow GitHub.
+});
+builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddSingleton<CommitSyncState>();
+builder.Services.AddScoped<ICommitSyncService, CommitSyncService>();
+builder.Services.AddHostedService<CommitSyncBackgroundService>();
+
+// HTTP layer + Swagger (Swashbuckle.AspNetCore). Enums as text in JSON ("Synced" instead of 0).
+builder.Services.AddControllers()
+    .AddJsonOptions(options => options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 

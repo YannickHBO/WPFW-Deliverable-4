@@ -2,13 +2,18 @@ using System.ComponentModel.DataAnnotations;
 
 namespace PortfolioApi.Dtos;
 
-/// <summary>What the API returns for a blog post. Images are in gallery order.</summary>
+/// <summary>
+/// What the API returns for a blog post. Images are in gallery order. CommitSha and CommitUrl are set
+/// when the post is a git commit (added by the commit sync) and null for a post written by hand.
+/// </summary>
 public record BlogPostDto(
     int Id,
     string Title,
     string Content,
     DateTime PublishedDate,
-    IReadOnlyList<BlogPostImageDto> Images);
+    IReadOnlyList<BlogPostImageDto> Images,
+    string? CommitSha,
+    string? CommitUrl);
 
 /// <summary>Request body for POST /api/blogposts. Images are optional; their order is the gallery order.</summary>
 public record CreateBlogPostDto(
