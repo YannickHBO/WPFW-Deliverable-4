@@ -48,7 +48,7 @@ public class AuthController(UserManager<User> userManager, SignInManager<User> s
     public async Task<ActionResult<CurrentUserDto>> Login(LoginDto dto)
     {
         // isPersistent: false = a session cookie, gone when the browser closes.
-        // lockoutOnFailure: true = after 5 wrong passwords the account is locked for 5 minutes.
+        // lockoutOnFailure: true = after 3 wrong passwords the account is locked (see Program.cs).
         var result = await signInManager.PasswordSignInAsync(dto.Email, dto.Password, isPersistent: false, lockoutOnFailure: true);
 
         // One message for an unknown e-mail, a wrong password and a locked account,

@@ -13,7 +13,14 @@ builder.Services.AddDbContext<PortfolioDbContext>(options =>
 
 // Identity: user accounts and roles stored in PortfolioDbContext. AddIdentityCore (not AddIdentity)
 // adds no UI-oriented defaults; AddSignInManager adds password sign-in and the security stamp check.
-builder.Services.AddIdentityCore<User>(options => options.User.RequireUniqueEmail = true)
+builder.Services.AddIdentityCore<User>(options =>
+    {
+        options.User.RequireUniqueEmail = true;
+
+        // Brute-force protection: 3 wrong passwords in a row lock the account for 5 minutes.
+        options.Lockout.MaxFailedAccessAttempts = 3;
+        options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(5);
+    })
     .AddRoles<IdentityRole>()
     .AddEntityFrameworkStores<PortfolioDbContext>()
     .AddSignInManager();
